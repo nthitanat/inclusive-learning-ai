@@ -1,4 +1,36 @@
 import stringSimilarity from 'string-similarity';
+import path from 'path';
+import fs from 'fs';
+
+// Helper function to resolve data file path
+const getDataFilePath = (fileName: string): string => {
+  // Try different possible paths
+  const possiblePaths = [
+    path.join(process.cwd(), 'public', 'data', fileName),
+    path.join(process.cwd(), 'src', 'data', fileName), 
+    path.join(__dirname, '..', '..', 'public', 'data', fileName),
+    path.join(__dirname, '..', '..', 'src', 'data', fileName),
+    // For production builds
+    path.join('/var/task', 'public', 'data', fileName),
+    path.join('/var/task', 'src', 'data', fileName),
+  ];
+
+  for (const filePath of possiblePaths) {
+    try {
+      if (fs.existsSync(filePath)) {
+        console.log(`📁 Found data file at: ${filePath}`);
+        return filePath;
+      }
+    } catch (error) {
+      // Continue to next path
+    }
+  }
+
+  // Fallback to public/data path (most likely to work in production)
+  const fallbackPath = path.join(process.cwd(), 'public', 'data', fileName);
+  console.warn(`⚠️ Could not find ${fileName}, using fallback: ${fallbackPath}`);
+  return fallbackPath;
+};
 
 export const getSubjectCSVPath = (subject: string): string => {
   const subjectMapping: { [key: string]: string } = {
@@ -28,8 +60,8 @@ export const getSubjectCSVPath = (subject: string): string => {
 
   if (!csvFileName) {
     console.warn(`⚠️ No matching subject found for: ${subject}, using general curriculum`);
-    return process.cwd() + '/src/data/curriculum.csv';
+    return getDataFilePath('curriculum.csv');
   }
 
-  return process.cwd() + '/src/data/' + csvFileName;
+  return getDataFilePath(csvFileName);
 };
