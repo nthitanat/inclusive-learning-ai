@@ -173,17 +173,11 @@ const AdminDashboard: React.FC = () => {
         setUsers(await usersRes.json());
         setSessions(await sessionsRes.json());
         
-        // Handle finetune response with more detailed error checking
         if (finetuneRes.ok) {
           const finetuneResult = await finetuneRes.json();
           setFinetuneData(finetuneResult.data || []);
-        } else {
-          const errorResult = await finetuneRes.json();
-          console.warn('Fine-tuning data fetch failed:', errorResult);
-          setFinetuneData([]); // Set empty array instead of failing completely
         }
       } catch (e: any) {
-        console.error('Error fetching data:', e);
         setError(e.message);
       } finally {
         setLoading(false);

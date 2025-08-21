@@ -395,34 +395,63 @@ function SessionPageContent() {
     );
   };
 
-  const handleFeedbackSubmit = async (feedback: string) => {
-    console.log("Submitting feedback:", feedback);
-    const feedbackField = `feedback${configStep + 1}`;
+  const handleFeedbackSubmit = async (feedbackData: any) => {
+    console.log("Submitting structured feedback:", feedbackData);
     setLoading(true);
-    await apiCallWith401(
-      async () => {
+    
+    // For steps 2 and 3, submit feedback then proceed to next step
+    if (configStep === 2 || configStep === 3) {
+      await apiCallWith401(
+        async () => {
+          const token = localStorage.getItem("token");
+          
+          // Save structured feedback for fine-tuning
+          // Server will retrieve all session data using selectedSessionId
+          await axios.post(
+            "/api/feedback/finetune",
+            {
+              sessionId: selectedSessionId,
+              feedbackData
+            },
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+        },
+        () => setLoginModalOpen(true)
+      );
+    }
+    
+    // Now proceed to next step (regardless of feedback submission)
+    const nextStep = configStep + 1;
+    console.log("Moving from configStep:", configStep, "to:", nextStep);
+    setConfigStep(nextStep);
+    setShowResponse(false);
+    setConfigResponse("");
+
+    // If next step has no input fields, auto-submit it
+    if (stepConfigFields[nextStep] && stepConfigFields[nextStep].length === 0) {
+      try {
         const token = localStorage.getItem("token");
-        await axios.post(
-          "/api/session/feedback",
-          {
-            sessionId: selectedSessionId,
-            feedbackField,
-            feedback,
-          },
+        const res = await axios.post(
+          `/api/chat/step/${nextStep}`,
+          { ...configFields, sessionId: selectedSessionId },
           {
             headers: {
               Authorization: `Bearer ${token}`,
             },
           }
         );
-        setConfigFields((prev) => ({
-          ...prev,
-          [feedbackField]: feedback,
-        }));
-        await handleConfigNextStep();
-      },
-      () => setLoginModalOpen(true)
-    );
+        const data = res.data;
+        setConfigResponse(data.response);
+        setShowResponse(true);
+      } catch (error) {
+        console.error("Error auto-advancing step:", error);
+      }
+    }
+    
     setLoading(false);
   };
 

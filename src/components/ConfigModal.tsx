@@ -11,7 +11,13 @@ import {
   Select,
   InputLabel,
   FormControl,
+  Rating,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Divider,
 } from "@mui/material";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import JsonDynamicRenderer from "./JsonDynamicRenderer";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ListIcon from "@mui/icons-material/List";
@@ -31,12 +37,185 @@ interface ConfigModalProps {
   onSubmit: () => void;
   onNextStep: () => void;
   onPreviousStep: () => void;
-  onSectionSelection?: () => void; // Add this prop
-  onFeedbackSubmit: (feedback: string) => void; // Add this prop
+  onSectionSelection?: () => void;
+  onFeedbackSubmit: (feedbackData: any) => void; // Updated to accept structured feedback
   onError?: (msg: string) => void;
-  errorWarning?: boolean; // Add this prop
-  onClearErrorWarning?: () => void; // Add this prop
+  errorWarning?: boolean;
+  onClearErrorWarning?: () => void;
 }
+
+// Rating-based Feedback Component
+const RatingFeedbackComponent: React.FC<{
+  step: number;
+  onFeedbackChange: (feedback: any) => void;
+}> = ({ step, onFeedbackChange }) => {
+  const [ratings, setRatings] = useState<{[key: string]: {[key: string]: number}}>({});
+  const [openComment, setOpenComment] = useState("");
+
+  const currentFields = step === 2 ? feedbackRatingFields.step2 : 
+                       step === 3 ? feedbackRatingFields.step3 : [];
+
+  const handleRatingChange = (category: string, questionKey: string, value: number) => {
+    const newRatings = {
+      ...ratings,
+      [category]: {
+        ...ratings[category],
+        [questionKey]: value
+      }
+    };
+    setRatings(newRatings);
+    
+    // Send structured feedback data
+    onFeedbackChange({
+      step: step,
+      ratings: newRatings,
+      openComment: openComment,
+      timestamp: new Date().toISOString()
+    });
+  };
+
+  const handleCommentChange = (value: string) => {
+    setOpenComment(value);
+    onFeedbackChange({
+      step: step,
+      ratings: ratings,
+      openComment: value,
+      timestamp: new Date().toISOString()
+    });
+  };
+
+  if (currentFields.length === 0) return null;
+
+  return (
+    <Box sx={{ mt: 2 }}>
+      <Typography 
+        variant="h6" 
+        sx={{ 
+          color: "#f0fdf4", 
+          mb: 2,
+          fontSize: { xs: "1rem", sm: "1.125rem", md: "1.25rem" }
+        }}
+      >
+        📊 ประเมินคุณภาพการตอบของ AI - ส่วนที่ {step + 1}
+      </Typography>
+      
+      {currentFields.map((category, categoryIdx) => (
+        <Accordion key={category.category} sx={{
+          background: "rgba(240, 253, 244, 0.05)",
+          backdropFilter: "blur(8px)",
+          border: "1px solid rgba(34, 197, 94, 0.2)",
+          mb: 1,
+          "&:before": { display: "none" }
+        }}>
+          <AccordionSummary expandIcon={<ExpandMoreIcon sx={{ color: "#bbf7d0" }} />}>
+            <Typography sx={{ color: "#dcfce7", fontWeight: 500 }}>
+              {category.label}
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            {category.questions.map((question) => (
+              <Box key={question.key} sx={{ mb: 2 }}>
+                <Typography 
+                  variant="body2" 
+                  sx={{ 
+                    color: "#bbf7d0", 
+                    mb: 1,
+                    fontSize: { xs: "0.8rem", sm: "0.875rem" }
+                  }}
+                >
+                  {question.label}
+                </Typography>
+                <Box 
+                  sx={{ 
+                    display: "flex", 
+                    alignItems: "center", 
+                    gap: { xs: 1, sm: 2 },
+                    flexWrap: { xs: "wrap", sm: "nowrap" }
+                  }}
+                >
+                  <Typography 
+                    variant="caption" 
+                    sx={{ 
+                      color: "#9ca3af",
+                      fontSize: { xs: "0.7rem", sm: "0.75rem" }
+                    }}
+                  >
+                    ไม่ดี
+                  </Typography>
+                  <Rating
+                    value={ratings[category.category]?.[question.key] || 0}
+                    onChange={(_, value) => handleRatingChange(category.category, question.key, value || 0)}
+                    max={question.scale}
+                    size={window.innerWidth < 600 ? "small" : "medium"}
+                    sx={{
+                      "& .MuiRating-iconFilled": {
+                        color: "#22c55e",
+                      },
+                      "& .MuiRating-iconEmpty": {
+                        color: "rgba(34, 197, 94, 0.3)",
+                      },
+                    }}
+                  />
+                  <Typography 
+                    variant="caption" 
+                    sx={{ 
+                      color: "#9ca3af",
+                      fontSize: { xs: "0.7rem", sm: "0.75rem" }
+                    }}
+                  >
+                    ดีมาก
+                  </Typography>
+                  <Typography 
+                    variant="body2" 
+                    sx={{ 
+                      color: "#22c55e", 
+                      fontWeight: 500,
+                      fontSize: { xs: "0.8rem", sm: "0.875rem" }
+                    }}
+                  >
+                    {ratings[category.category]?.[question.key] || 0}/{question.scale}
+                  </Typography>
+                </Box>
+              </Box>
+            ))}
+          </AccordionDetails>
+        </Accordion>
+      ))}
+
+      <TextField
+        fullWidth
+        label="ข้อเสนอแนะเพิ่มเติม (ไม่บังคับ)"
+        value={openComment}
+        onChange={(e) => handleCommentChange(e.target.value)}
+        margin="normal"
+        multiline
+        minRows={2}
+        sx={{
+          "& .MuiOutlinedInput-root": {
+            background: "rgba(240, 253, 244, 0.1)",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
+            "& fieldset": {
+              borderColor: "rgba(34, 197, 94, 0.2)",
+            },
+            "&:hover fieldset": {
+              borderColor: "rgba(34, 197, 94, 0.4)",
+            },
+            "&.Mui-focused fieldset": {
+              borderColor: "rgba(34, 197, 94, 0.6)",
+            },
+            "& textarea": {
+              color: "#f0fdf4",
+            },
+          },
+          "& .MuiInputLabel-root": {
+            color: "#bbf7d0",
+          },
+        }}
+      />
+    </Box>
+  );
+};
 
 export const stepConfigFields = [
   [
@@ -51,26 +230,77 @@ export const stepConfigFields = [
     { label: "จำนวนคาบ", field: "studyPeriod" },
   ],
   [],
-  [
-    {
-      label:
-        "ท่านคิดว่าแผนการสอนนี้สามารถนำไปปฏิบัติได้จริงหรือไม่? มีข้อจำกัดอะไรบ้าง?",
-      field: "reflection1",
-    },
-    {
-      label: "แผนการสอนนี้สอดคล้องกับวัตถุประสงค์หรือไม่? (ให้คะแนนเต็ม 10)",
-      field: "reflection3",
-    },
-    {
-      label: "โปรดให้ ข้อเสนอแนะในภาพรวมของการออกแบบการสอนแบบห้องเรียนรวม",
-      field: "reflection4",
-    },
-    {
-      label: "โปรดให้ ข้อเสนอแนะในภาพรวมของคำตอบจาก เอไอ",
-      field: "reflection5",
-    },
-  ],
 ];
+
+// Focused feedback only for Steps 2 & 3
+export const feedbackRatingFields = {
+  step2: [
+    {
+      category: "udl_implementation",
+      label: "การใช้หลัก UDL (Multiple Means of Representation, Engagement, Action/Expression)",
+      questions: [
+        { key: "representation", label: "ความหลากหลายของการนำเสนอเนื้อหา", scale: 5 },
+        { key: "engagement", label: "กลยุทธ์สร้างแรงจูงใจสำหรับนักเรียนแต่ละประเภท", scale: 5 },
+        { key: "action_expression", label: "ทางเลือกในการแสดงออกและประเมินผล", scale: 5 }
+      ]
+    },
+    {
+      category: "differentiation_quality",
+      label: "คุณภาพการปรับการเรียนการสอนตามความแตกต่างของผู้เรียน",
+      questions: [
+        { key: "appropriateness", label: "ความเหมาะสมของการปรับกิจกรรม", scale: 5 },
+        { key: "feasibility", label: "ความเป็นไปได้ในการดำเนินการจริง", scale: 5 },
+        { key: "specificity", label: "ความชัดเจนของคำแนะนำการปรับ", scale: 5 }
+      ]
+    },
+    {
+      category: "cognitive_complexity",
+      label: "ความซับซ้อนและระดับการคิดของกิจกรรม",
+      questions: [
+        { key: "complexity_level", label: "ระดับความท้าทายเหมาะสมกับผู้เรียน", scale: 5 },
+        { key: "higher_order", label: "ส่งเสริมการคิดขั้นสูง (วิเคราะห์/สร้างสรรค์)", scale: 5 }
+      ]
+    },
+    {
+      category: "practical_implementation",
+      label: "ความเป็นไปได้ในการนำไปใช้จริง",
+      questions: [
+        { key: "time_allocation", label: "การกำหนดเวลาแต่ละกิจกรรม", scale: 5 },
+        { key: "resource_availability", label: "ความพร้อมของสื่อและอุปกรณ์", scale: 5 },
+        { key: "classroom_management", label: "การจัดการชั้นเรียน", scale: 5 }
+      ]
+    }
+  ],
+  step3: [
+    {
+      category: "assessment_alignment",
+      label: "ความสอดคล้องของการประเมิน",
+      questions: [
+        { key: "objective_alignment", label: "สอดคล้องกับจุดประสงค์การเรียนรู้", scale: 5 },
+        { key: "curriculum_standards", label: "สอดคล้องกับมาตรฐานหลักสูตร", scale: 5 },
+        { key: "comprehensive_coverage", label: "ครอบคลุมทุกด้านการเรียนรู้", scale: 5 }
+      ]
+    },
+    {
+      category: "assessment_inclusivity",
+      label: "ความครอบคลุมและเป็นธรรมของการประเมิน",
+      questions: [
+        { key: "multiple_methods", label: "ความหลากหลายของวิธีประเมิน", scale: 5 },
+        { key: "accessibility", label: "เข้าถึงได้สำหรับนักเรียนทุกประเภท", scale: 5 },
+        { key: "fair_scoring", label: "ความเป็นธรรมในเกณฑ์การให้คะแนน", scale: 5 }
+      ]
+    },
+    {
+      category: "evaluation_feasibility",
+      label: "ความเป็นไปได้ในการประเมิน",
+      questions: [
+        { key: "teacher_workload", label: "ภาระงานของครูในการประเมิน", scale: 5 },
+        { key: "scoring_clarity", label: "ความชัดเจนของเกณฑ์การประเมิน", scale: 5 },
+        { key: "time_efficiency", label: "ประสิทธิภาพด้านเวลา", scale: 5 }
+      ]
+    }
+  ]
+};
 
 const LOADING_SENTENCE =
   "กำลังประมวลผล เพื่อความรวดเร็ว แม่นยำ สำหรับ AI version นี้ กรุณาอย่าปิดหน้าจอ";
@@ -126,8 +356,8 @@ const TypingLoader: React.FC = () => {
       {/* AI Brain Loading Icon */}
       <Box
         sx={{
-          width: 80,
-          height: 80,
+          width: { xs: 60, sm: 80 },
+          height: { xs: 60, sm: 80 },
           borderRadius: '50%',
           background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(16, 185, 129, 0.3))',
           backdropFilter: 'blur(12px)',
@@ -217,7 +447,7 @@ const TypingLoader: React.FC = () => {
       {/* Progress Bar */}
       <Box
         sx={{
-          width: 300,
+          width: { xs: 250, sm: 300 },
           height: 4,
           background: 'rgba(34, 197, 94, 0.1)',
           borderRadius: 2,
@@ -308,6 +538,26 @@ const SUBJECT_OPTIONS = [
   "ภาษาต่างประเทศ",
 ];
 
+const INCLUSIVE_STUDENT_TYPES = [
+  "นักเรียนที่มีความสามารถพิเศษ (Gifted)",
+  "นักเรียนที่มีความต้องการพิเศษทางการเรียนรู้ (Learning Disabilities)",
+  "นักเรียนที่มีความบกพร่องทางการมองเห็น",
+  "นักเรียนที่มีความบกพร่องทางการได้ยิน",
+  "นักเรียนที่มีความบกพร่องทางร่างกาย",
+  "นักเรียนที่มีความบกพร่องทางสติปัญญา",
+  "นักเรียนออทิสติก (Autism Spectrum Disorder)",
+  "นักเรียน ADHD (สมาธิสั้น)",
+  "นักเรียนที่มีปัญหาทางพฤติกรรม",
+  "นักเรียนที่มีปัญหาทางอารมณ์",
+  "นักเรียนที่มีความยากลำบากทางเศรษฐกิจ",
+  "นักเรียนต่างชาติ/ต่างภาษา",
+  "นักเรียนที่เรียนช้า (Slow Learner)",
+  "นักเรียนที่มีปัญหาการอ่าน (Dyslexia)",
+  "นักเรียนที่มีปัญหาการเขียน (Dysgraphia)",
+  "นักเรียนที่มีปัญหาคณิตศาสตร์ (Dyscalculia)",
+  "อื่นๆ (โปรดระบุ)",
+];
+
 const ConfigModal: React.FC<ConfigModalProps> = ({
   open,
   loading,
@@ -330,15 +580,20 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
   const currentFields = stepConfigFields[configStep] || [
     { label: "Unknown Step", field: "" },
   ];
-  const feedbackField = `feedback${configStep + 1}`;
-  const [feedback, setFeedback] = useState("");
+  const [structuredFeedback, setStructuredFeedback] = useState<any>(null);
   const [lineModalOpen, setLineModalOpen] = useState(false);
 
   useEffect(() => {
-    // Reset feedback when step changes or modal opens
-    setFeedback(configFields[feedbackField] || "");
+    // Reset structured feedback when step changes or modal opens
+    setStructuredFeedback(null);
     // eslint-disable-next-line
   }, [configStep, showResponse, open]);
+
+  const handleFeedbackChange = (feedbackData: any) => {
+    setStructuredFeedback(feedbackData);
+  };
+
+  const shouldShowFeedback = showResponse && (configStep === 2 || configStep === 3);
 
   return (
     <Modal open={open} onClose={onClose}>
@@ -348,8 +603,22 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
           top: "50%",
           left: "50%",
           transform: "translate(-50%, -50%)",
-          width: 800,
-          height: 600,
+          width: {
+            xs: "95vw",
+            sm: "90vw",
+            md: "85vw",
+            lg: "800px",
+            xl: "800px"
+          },
+          height: {
+            xs: "95vh",
+            sm: "90vh",
+            md: "85vh",
+            lg: "600px",
+            xl: "600px"
+          },
+          maxWidth: "800px",
+          maxHeight: "90vh",
           background: "rgba(21, 128, 61, 0.12)",
           backdropFilter: "blur(20px)",
           WebkitBackdropFilter: "blur(20px)",
@@ -386,22 +655,26 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
           sx={{
             display: "flex",
             alignItems: "center",
-            gap: 1,
-            px: 3,
+            gap: { xs: 0.5, sm: 1 },
+            px: { xs: 2, sm: 3 },
             py: 2,
             borderBottom: "1px solid rgba(34, 197, 94, 0.15)",
             background: "rgba(240, 253, 244, 0.05)",
             backdropFilter: "blur(8px)",
             WebkitBackdropFilter: "blur(8px)",
             minHeight: 64,
+            flexWrap: { xs: "wrap", sm: "nowrap" },
           }}
         >
           <Button
             startIcon={<ListIcon />}
             onClick={onSectionSelection}
             variant="outlined"
+            size={window.innerWidth < 600 ? "small" : "medium"}
             sx={{ 
-              ml: 1,
+              ml: { xs: 0, sm: 1 },
+              mb: { xs: 1, sm: 0 },
+              fontSize: { xs: "0.75rem", sm: "0.875rem" },
               background: "rgba(34, 197, 94, 0.15)",
               backdropFilter: "blur(12px)",
               WebkitBackdropFilter: "blur(12px)",
@@ -422,7 +695,14 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
             onClick={() => setLineModalOpen(true)}
             color="success"
             variant="contained"
-            sx={{ ml: 1, bgcolor: "#06C755", "&:hover": { bgcolor: "#05b94a" } }}
+            size={window.innerWidth < 600 ? "small" : "medium"}
+            sx={{ 
+              ml: { xs: 0, sm: 1 }, 
+              mb: { xs: 1, sm: 0 },
+              fontSize: { xs: "0.75rem", sm: "0.875rem" },
+              bgcolor: "#06C755", 
+              "&:hover": { bgcolor: "#05b94a" } 
+            }}
           >
             Line OA
           </Button>
@@ -430,7 +710,12 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
         <LineQROpenModal open={lineModalOpen} onClose={() => setLineModalOpen(false)} />
         {/* Modal content */}
         <Box
-          sx={{ p: 4, pt: 2, height: "calc(100% - 64px)", overflowY: "auto" }}
+          sx={{ 
+            p: { xs: 2, sm: 3, md: 4 }, 
+            pt: 2, 
+            height: "calc(100% - 64px)", 
+            overflowY: "auto" 
+          }}
         >
           {/* 404 Error Page */}
           {errorWarning ? (
@@ -460,37 +745,70 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
                 switch (configStep) {
                   case 0:
                     return (
-                      <Typography variant="h5" gutterBottom sx={{ color: "#f0fdf4", fontWeight: 600 }}>
+                      <Typography 
+                        variant="h5" 
+                        gutterBottom 
+                        sx={{ 
+                          color: "#f0fdf4", 
+                          fontWeight: 600,
+                          fontSize: { xs: "1.25rem", sm: "1.5rem", md: "1.75rem" }
+                        }}
+                      >
                         ส่วนที่ 1: ข้อมูลหลักสูตร
                       </Typography>
                     );
                   case 1:
                     return (
-                      <Typography variant="h5" gutterBottom sx={{ color: "#f0fdf4", fontWeight: 600 }}>
+                      <Typography 
+                        variant="h5" 
+                        gutterBottom 
+                        sx={{ 
+                          color: "#f0fdf4", 
+                          fontWeight: 600,
+                          fontSize: { xs: "1.25rem", sm: "1.5rem", md: "1.75rem" }
+                        }}
+                      >
                         ส่วนที่ 2: จุดประสงค์การเรียนรู้
                       </Typography>
                     );
                   case 2:
                     return (
-                      <Typography variant="h5" gutterBottom sx={{ color: "#f0fdf4", fontWeight: 600 }}>
+                      <Typography 
+                        variant="h5" 
+                        gutterBottom 
+                        sx={{ 
+                          color: "#f0fdf4", 
+                          fontWeight: 600,
+                          fontSize: { xs: "1.25rem", sm: "1.5rem", md: "1.75rem" }
+                        }}
+                      >
                         ส่วนที่ 3: กระบวนการจัดกิจกรรมการเรียนรู้
                       </Typography>
                     );
                   case 3:
                     return (
-                      <Typography variant="h5" gutterBottom sx={{ color: "#f0fdf4", fontWeight: 600 }}>
+                      <Typography 
+                        variant="h5" 
+                        gutterBottom 
+                        sx={{ 
+                          color: "#f0fdf4", 
+                          fontWeight: 600,
+                          fontSize: { xs: "1.25rem", sm: "1.5rem", md: "1.75rem" }
+                        }}
+                      >
                         ส่วนที่ 4: การวัดประเมินผล
-                      </Typography>
-                    );
-                  case 4:
-                    return (
-                      <Typography variant="h5" gutterBottom sx={{ color: "#f0fdf4", fontWeight: 600 }}>
-                        ส่วนที่ 5: ขออนุเคราะห์ผลป้อนกลับ
                       </Typography>
                     );
                   default:
                     return (
-                      <Typography variant="h6" gutterBottom sx={{ color: "#f0fdf4" }}>
+                      <Typography 
+                        variant="h6" 
+                        gutterBottom 
+                        sx={{ 
+                          color: "#f0fdf4",
+                          fontSize: { xs: "1.125rem", sm: "1.25rem", md: "1.375rem" }
+                        }}
+                      >
                         ส่วน {configStep + 1}:{" "}
                         {currentFields.length === 1
                           ? currentFields[0].label
@@ -508,47 +826,91 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
                 currentFields.map((fieldObj) =>
                   fieldObj.field === "studentType" ? (
                     <Box key="studentType" sx={{ mb: 2 }}>
-                      <Typography variant="subtitle1" sx={{ color: "#dcfce7" }}>
+                      <Typography 
+                        variant="subtitle1" 
+                        sx={{ 
+                          color: "#dcfce7",
+                          fontSize: { xs: "0.9rem", sm: "1rem" }
+                        }}
+                      >
                         ประเภทของนักเรียนที่มีความหลากหลาย
                       </Typography>
                       {Array.isArray(configFields.studentType) &&
                         configFields.studentType.map((student, idx) => (
                           <Box
                             key={idx}
-                            sx={{ display: "flex", gap: 1, mb: 1 }}
+                            sx={{ 
+                              display: "flex", 
+                              flexDirection: { xs: "column", sm: "row" },
+                              gap: 1, 
+                              mb: 1 
+                            }}
                           >
-                            <TextField
-                              label="ประเภท"
-                              value={student.type}
-                              onChange={(e) => {
-                                const updated = [...configFields.studentType];
-                                updated[idx].type = e.target.value;
-                                onChange("studentType", updated);
-                              }}
-                              size="small"
-                              sx={{
-                                "& .MuiOutlinedInput-root": {
+                            <FormControl fullWidth size="small" sx={{ mb: { xs: 1, sm: 0 } }}>
+                              <InputLabel 
+                                id={`student-type-${idx}-label`}
+                                sx={{ color: "#bbf7d0" }}
+                              >
+                                ประเภท
+                              </InputLabel>
+                              <Select
+                                labelId={`student-type-${idx}-label`}
+                                value={student.type}
+                                label="ประเภท"
+                                onChange={(e) => {
+                                  const updated = [...configFields.studentType];
+                                  updated[idx].type = e.target.value;
+                                  onChange("studentType", updated);
+                                }}
+                                sx={{
                                   background: "rgba(240, 253, 244, 0.1)",
                                   backdropFilter: "blur(8px)",
                                   WebkitBackdropFilter: "blur(8px)",
-                                  "& fieldset": {
+                                  "& .MuiOutlinedInput-notchedOutline": {
                                     borderColor: "rgba(34, 197, 94, 0.2)",
                                   },
-                                  "&:hover fieldset": {
+                                  "&:hover .MuiOutlinedInput-notchedOutline": {
                                     borderColor: "rgba(34, 197, 94, 0.4)",
                                   },
-                                  "&.Mui-focused fieldset": {
+                                  "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
                                     borderColor: "rgba(34, 197, 94, 0.6)",
                                   },
-                                  "& input": {
+                                  "& .MuiSelect-select": {
                                     color: "#f0fdf4",
                                   },
-                                },
-                                "& .MuiInputLabel-root": {
-                                  color: "#bbf7d0",
-                                },
-                              }}
-                            />
+                                  "& .MuiSvgIcon-root": {
+                                    color: "#bbf7d0",
+                                  },
+                                }}
+                                MenuProps={{
+                                  PaperProps: {
+                                    sx: {
+                                      background: "rgba(21, 128, 61, 0.12)",
+                                      backdropFilter: "blur(20px)",
+                                      WebkitBackdropFilter: "blur(20px)",
+                                      border: "1px solid rgba(34, 197, 94, 0.25)",
+                                      maxHeight: 300,
+                                      "& .MuiMenuItem-root": {
+                                        color: "#f0fdf4",
+                                        fontSize: "0.875rem",
+                                        "&:hover": {
+                                          background: "rgba(34, 197, 94, 0.15)",
+                                        },
+                                        "&.Mui-selected": {
+                                          background: "rgba(34, 197, 94, 0.2)",
+                                        },
+                                      },
+                                    },
+                                  },
+                                }}
+                              >
+                                {INCLUSIVE_STUDENT_TYPES.map((option) => (
+                                  <MenuItem value={option} key={option}>
+                                    {option}
+                                  </MenuItem>
+                                ))}
+                              </Select>
+                            </FormControl>
                             <TextField
                               label="จำนวนร้อยละของชั้นเรียน"
                               value={student.percentage}
@@ -559,10 +921,12 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
                               }}
                               size="small"
                               type="number"
+                              fullWidth
                               InputProps={{ 
                                 endAdornment: <span style={{ color: "#bbf7d0" }}>%</span>,
                               }}
                               sx={{
+                                mb: { xs: 1, sm: 0 },
                                 "& .MuiOutlinedInput-root": {
                                   background: "rgba(240, 253, 244, 0.1)",
                                   backdropFilter: "blur(8px)",
@@ -587,6 +951,7 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
                             />
                             <Button
                               variant="outlined"
+                              size="small"
                               onClick={() => {
                                 const updated = configFields.studentType.filter(
                                   (_: any, i: number) => i !== idx
@@ -598,6 +963,7 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
                                 !!showResponse
                               }
                               sx={{
+                                minWidth: { xs: "auto", sm: "120px" },
                                 background: "rgba(239, 68, 68, 0.15)",
                                 backdropFilter: "blur(12px)",
                                 WebkitBackdropFilter: "blur(12px)",
@@ -609,12 +975,13 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
                                 },
                               }}
                             >
-                              ลบประเภทนักเรียน
+                              ลบ
                             </Button>
                           </Box>
                         ))}
                       <Button
                         variant="outlined"
+                        size="small"
                         onClick={() => {
                           onChange("studentType", [
                             ...configFields.studentType,
@@ -748,16 +1115,22 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
                 <Box
                   sx={{
                     mt: 2,
-                    p: 2,
+                    p: { xs: 1.5, sm: 2 },
                     background: "rgba(240, 253, 244, 0.08)",
                     backdropFilter: "blur(12px)",
                     WebkitBackdropFilter: "blur(12px)",
                     border: "1px solid rgba(34, 197, 94, 0.2)",
                     boxShadow: "0 8px 32px 0 rgba(21, 128, 61, 0.15)",
                     borderRadius: 2,
-                    height: 250, // fixed height
-                    maxHeight: 250, // ensure fixed
-                    minHeight: 250, // ensure fixed
+                    height: shouldShowFeedback 
+                      ? { xs: 200, sm: 220, md: 250 }
+                      : { xs: 400, sm: 400, md: 400 },
+                    maxHeight: shouldShowFeedback 
+                      ? { xs: 200, sm: 220, md: 250 }
+                      : { xs: 400, sm: 400, md: 400 },
+                    minHeight: shouldShowFeedback 
+                      ? { xs: 200, sm: 220, md: 250 }
+                      : { xs: 400, sm: 400, md: 400 },
                     overflowY: "auto",
                     overflowX: "auto",
                   }}
@@ -766,51 +1139,30 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
                 </Box>
               )}
 
-              {/* Feedback input when showResponse is true */}
-              {showResponse && (
-                <TextField
-                  fullWidth
-                  label={`ขอความอนุเคราะห์ข้อเสนอแนะสำหรับการตอบของ AI ในส่วนที่ ${
-                    configStep + 1
-                  }`}
-                  value={feedback}
-                  onChange={(e) => setFeedback(e.target.value)}
-                  margin="normal"
-                  multiline
-                  minRows={2}
-                  sx={{
-                    "& .MuiOutlinedInput-root": {
-                      background: "rgba(240, 253, 244, 0.1)",
-                      backdropFilter: "blur(8px)",
-                      WebkitBackdropFilter: "blur(8px)",
-                      "& fieldset": {
-                        borderColor: "rgba(34, 197, 94, 0.2)",
-                      },
-                      "&:hover fieldset": {
-                        borderColor: "rgba(34, 197, 94, 0.4)",
-                      },
-                      "&.Mui-focused fieldset": {
-                        borderColor: "rgba(34, 197, 94, 0.6)",
-                      },
-                      "& textarea": {
-                        color: "#f0fdf4",
-                      },
-                    },
-                    "& .MuiInputLabel-root": {
-                      color: "#bbf7d0",
-                    },
-                  }}
+              {/* Rating-based Feedback for Steps 2 & 3 only */}
+              {shouldShowFeedback && (
+                <RatingFeedbackComponent
+                  step={configStep}
+                  onFeedbackChange={handleFeedbackChange}
                 />
               )}
 
               <Box
-                sx={{ display: "flex", justifyContent: "space-between", mt: 2 }}
+                sx={{ 
+                  display: "flex", 
+                  justifyContent: "space-between", 
+                  mt: 2,
+                  flexDirection: { xs: "column", sm: "row" },
+                  gap: { xs: 2, sm: 0 }
+                }}
               >
                 <Button
                   variant="outlined"
                   onClick={onPreviousStep}
                   disabled={configStep === 0 && !showResponse}
+                  size={window.innerWidth < 600 ? "small" : "medium"}
                   sx={{
+                    order: { xs: 2, sm: 1 },
                     background: "rgba(156, 163, 175, 0.15)",
                     backdropFilter: "blur(12px)",
                     WebkitBackdropFilter: "blur(12px)",
@@ -834,7 +1186,9 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
                     variant="contained"
                     onClick={onSubmit}
                     disabled={loading}
+                    size={window.innerWidth < 600 ? "small" : "medium"}
                     sx={{
+                      order: { xs: 1, sm: 2 },
                       background: "rgba(34, 197, 94, 0.2)",
                       backdropFilter: "blur(12px)",
                       WebkitBackdropFilter: "blur(12px)",
@@ -860,7 +1214,9 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
                     variant="contained"
                     onClick={onStepSubmit}
                     disabled={loading}
+                    size={window.innerWidth < 600 ? "small" : "medium"}
                     sx={{
+                      order: { xs: 1, sm: 2 },
                       background: "rgba(34, 197, 94, 0.2)",
                       backdropFilter: "blur(12px)",
                       WebkitBackdropFilter: "blur(12px)",
@@ -884,9 +1240,11 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
                 ) : (
                   <Button
                     variant="contained"
-                    onClick={() => onFeedbackSubmit(feedback)}
-                    disabled={loading}
+                    onClick={() => onFeedbackSubmit(structuredFeedback)}
+                    disabled={loading || (shouldShowFeedback && !structuredFeedback)}
+                    size={window.innerWidth < 600 ? "small" : "medium"}
                     sx={{
+                      order: { xs: 1, sm: 2 },
                       background: "rgba(34, 197, 94, 0.2)",
                       backdropFilter: "blur(12px)",
                       WebkitBackdropFilter: "blur(12px)",
@@ -905,7 +1263,7 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
                       },
                     }}
                   >
-                    ไปต่อ
+                    {shouldShowFeedback ? "ส่งความเห็นและถัดไป" : "ถัดไป"}
                   </Button>
                 )}
               </Box>
