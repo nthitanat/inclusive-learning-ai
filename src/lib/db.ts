@@ -10,7 +10,7 @@ export async function connectDB() {
   if (!client) {
     client = new MongoClient(MONGO_URI);
     await client.connect();
-    db = client.db('sessions');
+    db = client.db('inclusive');
     console.log("✅ Connected to MongoDB Atlas:", DB_NAME);
   }
   return db;

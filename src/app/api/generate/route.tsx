@@ -100,7 +100,7 @@ export async function POST(request: NextRequest, { params }) {
     });
 
     doc.setData({
-      keyContent: keyContent,
+      keyContent,
       learningArea: learningArea,
       subject: subject,
       lessonTopic: lessonTopic,
