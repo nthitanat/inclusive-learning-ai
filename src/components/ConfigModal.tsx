@@ -1296,91 +1296,6 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
                   กลับ
                 </Button>
                 {(configStep === stepConfigFields.length - 1) && showResponse ? (
-                  <Button
-                    variant="contained"
-                    onClick={onSubmit}
-                    disabled={loading}
-                    size={isSmallScreen ? "small" : "medium"}
-                    sx={{
-                      order: { xs: 1, sm: 2 },
-                      background: "rgba(34, 197, 94, 0.2)",
-                      backdropFilter: "blur(12px)",
-                      WebkitBackdropFilter: "blur(12px)",
-                      border: "1px solid rgba(34, 197, 94, 0.3)",
-                      color: "#bbf7d0",
-                      "&:hover": {
-                        background: "rgba(34, 197, 94, 0.3)",
-                        borderColor: "rgba(34, 197, 94, 0.5)",
-                        boxShadow: "0 8px 25px 0 rgba(34, 197, 94, 0.4)",
-                        transform: "translateY(-2px)",
-                      },
-                      "&:disabled": {
-                        background: "rgba(34, 197, 94, 0.1)",
-                        borderColor: "rgba(34, 197, 94, 0.15)",
-                        color: "rgba(34, 197, 94, 0.4)",
-                      },
-                    }}
-                  >
-                    {loading ? "Generating..." : "Generate (Final Step)"}
-                  </Button>
-                ) : !showResponse ? (
-                  <Button
-                    variant="contained"
-                    onClick={onStepSubmit}
-                    disabled={loading}
-                    size={isSmallScreen ? "small" : "medium"}
-                    sx={{
-                      order: { xs: 1, sm: 2 },
-                      background: "rgba(34, 197, 94, 0.2)",
-                      backdropFilter: "blur(12px)",
-                      WebkitBackdropFilter: "blur(12px)",
-                      border: "1px solid rgba(34, 197, 94, 0.3)",
-                      color: "#bbf7d0",
-                      "&:hover": {
-                        background: "rgba(34, 197, 94, 0.3)",
-                        borderColor: "rgba(34, 197, 94, 0.5)",
-                        boxShadow: "0 8px 25px 0 rgba(34, 197, 94, 0.4)",
-                        transform: "translateY(-2px)",
-                      },
-                      "&:disabled": {
-                        background: "rgba(34, 197, 94, 0.1)",
-                        borderColor: "rgba(34, 197, 94, 0.15)",
-                        color: "rgba(34, 197, 94, 0.4)",
-                      },
-                    }}
-                  >
-                    {loading ? "Loading..." : "ถัดไป"}
-                  </Button>
-                ) : configStep === 0 ? (
-                  // Step 0 with response - move to next step input
-                  <Button
-                    variant="contained"
-                    onClick={onNextStep}
-                    disabled={loading}
-                    size={isSmallScreen ? "small" : "medium"}
-                    sx={{
-                      order: { xs: 1, sm: 2 },
-                      background: "rgba(34, 197, 94, 0.2)",
-                      backdropFilter: "blur(12px)",
-                      WebkitBackdropFilter: "blur(12px)",
-                      border: "1px solid rgba(34, 197, 94, 0.3)",
-                      color: "#bbf7d0",
-                      "&:hover": {
-                        background: "rgba(34, 197, 94, 0.3)",
-                        borderColor: "rgba(34, 197, 94, 0.5)",
-                        boxShadow: "0 8px 25px 0 rgba(34, 197, 94, 0.4)",
-                        transform: "translateY(-2px)",
-                      },
-                      "&:disabled": {
-                        background: "rgba(34, 197, 94, 0.1)",
-                        borderColor: "rgba(34, 197, 94, 0.15)",
-                        color: "rgba(34, 197, 94, 0.4)",
-                      },
-                    }}
-                  >
-                    ถัดไป
-                  </Button>
-                ) : (
                   // Step 1 with response - submit feedback and generate
                   <Button
                     variant="contained"
@@ -1425,7 +1340,64 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
                       },
                     }}
                   >
-                    Generate (Step 1 with Feedback)
+                        {loading ? "Loading..." : "Generate"}
+                  </Button>
+                ) : !showResponse ? (
+                  <Button
+                    variant="contained"
+                    onClick={onStepSubmit}
+                    disabled={loading}
+                    size={isSmallScreen ? "small" : "medium"}
+                    sx={{
+                      order: { xs: 1, sm: 2 },
+                      background: "rgba(34, 197, 94, 0.2)",
+                      backdropFilter: "blur(12px)",
+                      WebkitBackdropFilter: "blur(12px)",
+                      border: "1px solid rgba(34, 197, 94, 0.3)",
+                      color: "#bbf7d0",
+                      "&:hover": {
+                        background: "rgba(34, 197, 94, 0.3)",
+                        borderColor: "rgba(34, 197, 94, 0.5)",
+                        boxShadow: "0 8px 25px 0 rgba(34, 197, 94, 0.4)",
+                        transform: "translateY(-2px)",
+                      },
+                      "&:disabled": {
+                        background: "rgba(34, 197, 94, 0.1)",
+                        borderColor: "rgba(34, 197, 94, 0.15)",
+                        color: "rgba(34, 197, 94, 0.4)",
+                      },
+                    }}
+                  >
+                    {loading ? "Loading..." : "ถัดไป"}
+                  </Button>
+                ) : (
+                  // Step 0 with response - move to next step input
+                  <Button
+                    variant="contained"
+                    onClick={onNextStep}
+                    disabled={loading}
+                    size={isSmallScreen ? "small" : "medium"}
+                    sx={{
+                      order: { xs: 1, sm: 2 },
+                      background: "rgba(34, 197, 94, 0.2)",
+                      backdropFilter: "blur(12px)",
+                      WebkitBackdropFilter: "blur(12px)",
+                      border: "1px solid rgba(34, 197, 94, 0.3)",
+                      color: "#bbf7d0",
+                      "&:hover": {
+                        background: "rgba(34, 197, 94, 0.3)",
+                        borderColor: "rgba(34, 197, 94, 0.5)",
+                        boxShadow: "0 8px 25px 0 rgba(34, 197, 94, 0.4)",
+                        transform: "translateY(-2px)",
+                      },
+                      "&:disabled": {
+                        background: "rgba(34, 197, 94, 0.1)",
+                        borderColor: "rgba(34, 197, 94, 0.15)",
+                        color: "rgba(34, 197, 94, 0.4)",
+                      },
+                    }}
+                  >
+                    ถัดไป
                   </Button>
                 )}
               </Box>
