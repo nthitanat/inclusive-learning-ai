@@ -20,19 +20,32 @@ export async function GET(request: Request) {
     } else {
       sessions = await getAllSession();
     }
-    // Attach user email to each session
-    const sessionsWithEmail = await Promise.all(
-      sessions.map(async (session) => {
-        let email = null;
+    // Attach user information to each session
+    const sessionsWithUserInfo = await Promise.all(
+      sessions.map(async (session: any) => {
+        let userInfo = null;
         try {
           // userId may be ObjectId or string
           const user = session.userId ? await getUserById(session.userId.toString()) : null;
-          email = user?.email || null;
-        } catch {}
-        return { ...session, userEmail: email };
+          if (user) {
+            userInfo = {
+              email: user.email || null,
+              firstName: user.firstName || null,
+              lastName: user.lastName || null
+            };
+          }
+        } catch (error) {
+          console.warn('Failed to fetch user info for session:', session._id);
+        }
+        return { 
+          ...session, 
+          userEmail: userInfo?.email || null,
+          userFirstName: userInfo?.firstName || null,
+          userLastName: userInfo?.lastName || null
+        };
       })
     );
-    return NextResponse.json(sessionsWithEmail);
+    return NextResponse.json(sessionsWithUserInfo);
   } catch (e) {
     return NextResponse.json({ error: 'Failed to fetch sessions' }, { status: 500 });
   }

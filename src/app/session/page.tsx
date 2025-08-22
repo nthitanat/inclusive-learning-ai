@@ -574,6 +574,38 @@ function SessionPageContent() {
             }}
           >
             <Box sx={{ display: "flex", alignItems: "center", flex: 1 }}>
+              <Box 
+                sx={{ 
+                  display: "flex", 
+                  alignItems: "center", 
+                  justifyContent: "center",
+                  mr: 2,
+                  width: 40,
+                  height: 40,
+                  borderRadius: "50%",
+                  border: "2px solid rgba(34, 197, 94, 0.3)",
+                  background: "rgba(255, 255, 255, 0.9)",
+                  padding: "4px",
+                  boxShadow: "0 4px 15px 0 rgba(34, 197, 94, 0.2)",
+                  overflow: "hidden",
+                  flexShrink: 0,
+                }}
+              >
+                <img
+                  src="/chulalongkorn-logo.png"
+                  alt="Chulalongkorn University"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "contain",
+                  }}
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    target.parentElement!.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: rgba(34, 197, 94, 0.2); color: #22c55e; font-weight: bold; font-size: 10px; text-align: center;">CU</div>';
+                  }}
+                />
+              </Box>
               <InclusiveLearningLogo 
                 sx={{ 
                   fontSize: 40, 
@@ -588,6 +620,17 @@ function SessionPageContent() {
                 textShadow: "0 2px 8px rgba(21, 128, 61, 0.3)",
               }}>
                 Inclusive Learning - Session
+              </Typography>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "rgba(240, 253, 244, 0.6)",
+                  fontWeight: 400,
+                  fontStyle: "italic",
+                  fontSize: "0.8rem",
+                }}
+              >
+                by Prof.Dr.Jaitip Na Songkhla and Thitanat Na Songkhla
               </Typography>
             </Box>
             <Box sx={{ display: "flex", gap: 1 }}>
