@@ -16,6 +16,8 @@ import {
   AccordionSummary,
   AccordionDetails,
   Divider,
+  Tabs,
+  Tab,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import JsonDynamicRenderer from "./JsonDynamicRenderer";
@@ -28,11 +30,11 @@ interface ConfigModalProps {
   open: boolean;
   loading: boolean;
   configStep: number;
-  configFields: { [key: string]: string };
-  response: string;
+  configFields: { [key: string]: any };
+  responses: { [key: string]: string }; // Changed to support multiple responses
   showResponse: boolean;
   onClose: () => void;
-  onChange: (field: string, value: string) => void;
+  onChange: (field: string, value: any) => void;
   onStepSubmit: () => void;
   onSubmit: () => void;
   onNextStep: () => void;
@@ -52,10 +54,23 @@ const RatingFeedbackComponent: React.FC<{
   const [ratings, setRatings] = useState<{[key: string]: {[key: string]: number}}>({});
   const [openComment, setOpenComment] = useState("");
 
-  const currentFields = step === 2 ? feedbackRatingFields.step2 : 
-                       step === 3 ? feedbackRatingFields.step3 : [];
+  const currentFields = step === 1 ? [...feedbackRatingFields.step2, ...feedbackRatingFields.step3] : [];
+
+  console.log("🎯 RATING FEEDBACK COMPONENT RENDER:", { step, currentFieldsLength: currentFields.length, ratings });
+
+  // Debug component mount
+  useEffect(() => {
+    console.log("🎯 RatingFeedbackComponent MOUNTED for step:", step);
+    return () => console.log("🎯 RatingFeedbackComponent UNMOUNTED");
+  }, []);
+
+  // Debug ratings changes
+  useEffect(() => {
+    console.log("🎯 RATINGS STATE CHANGED:", ratings, "Total ratings count:", Object.values(ratings).reduce((sum, category) => sum + Object.keys(category).length, 0));
+  }, [ratings]);
 
   const handleRatingChange = (category: string, questionKey: string, value: number) => {
+    console.log("🌟 RATING CHANGED:", { category, questionKey, value });
     const newRatings = {
       ...ratings,
       [category]: {
@@ -66,25 +81,35 @@ const RatingFeedbackComponent: React.FC<{
     setRatings(newRatings);
     
     // Send structured feedback data
-    onFeedbackChange({
+    const feedbackData = {
       step: step,
       ratings: newRatings,
       openComment: openComment,
       timestamp: new Date().toISOString()
-    });
+    };
+    console.log("🌟 CALLING onFeedbackChange with:", feedbackData);
+    onFeedbackChange(feedbackData);
   };
 
   const handleCommentChange = (value: string) => {
+    console.log("💬 COMMENT CHANGED:", value);
     setOpenComment(value);
-    onFeedbackChange({
+    const feedbackData = {
       step: step,
       ratings: ratings,
       openComment: value,
       timestamp: new Date().toISOString()
-    });
+    };
+    console.log("💬 CALLING onFeedbackChange with:", feedbackData);
+    onFeedbackChange(feedbackData);
   };
 
-  if (currentFields.length === 0) return null;
+  if (currentFields.length === 0) {
+    console.log("🚨 NO FEEDBACK FIELDS - component returning null");
+    return null;
+  }
+
+  console.log("✅ RENDERING FEEDBACK FORM with", currentFields.length, "categories");
 
   return (
     <Box sx={{ mt: 2 }}>
@@ -146,7 +171,6 @@ const RatingFeedbackComponent: React.FC<{
                     value={ratings[category.category]?.[question.key] || 0}
                     onChange={(_, value) => handleRatingChange(category.category, question.key, value || 0)}
                     max={question.scale}
-                    size={window.innerWidth < 600 ? "small" : "medium"}
                     sx={{
                       "& .MuiRating-iconFilled": {
                         color: "#22c55e",
@@ -223,13 +247,11 @@ export const stepConfigFields = [
     { label: "เรื่อง", field: "lessonTopic" },
     { label: "ระดับชั้น", field: "level" },
   ],
-  [],
   [
     { label: "จำนวนนักเรียนในชั้น", field: "numStudents" },
     { label: "นักเรียนที่มีความแตกต่าง", field: "studentType" },
     { label: "จำนวนคาบ", field: "studyPeriod" },
   ],
-  [],
 ];
 
 // Focused feedback only for Steps 2 & 3
@@ -563,7 +585,7 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
   loading,
   configStep,
   configFields,
-  response,
+  responses,
   showResponse,
   onClose,
   onChange,
@@ -582,18 +604,90 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
   ];
   const [structuredFeedback, setStructuredFeedback] = useState<any>(null);
   const [lineModalOpen, setLineModalOpen] = useState(false);
+  const [selectedTab, setSelectedTab] = useState(0);
+  const [isSmallScreen, setIsSmallScreen] = useState(false);
 
   useEffect(() => {
-    // Reset structured feedback when step changes or modal opens
-    setStructuredFeedback(null);
+    // Check window size safely
+    const checkScreenSize = () => {
+      if (typeof window !== 'undefined') {
+        setIsSmallScreen(window.innerWidth < 600);
+      }
+    };
+    
+    checkScreenSize();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', checkScreenSize);
+      return () => window.removeEventListener('resize', checkScreenSize);
+    }
+  }, []);
+
+  useEffect(() => {
+    // Only reset structured feedback when moving AWAY from a feedback step
+    // Don't reset when entering step 1 (which needs feedback) or when modal opens/closes
+    const needsFeedback = configStep === 1;
+    
+    if (!needsFeedback) {
+      console.log("🔄 RESETTING FEEDBACK - Moving away from feedback step to:", configStep);
+      setStructuredFeedback(null);
+    } else {
+      console.log("✅ PRESERVING FEEDBACK - Entered feedback step:", configStep);
+    }
     // eslint-disable-next-line
-  }, [configStep, showResponse, open]);
+  }, [configStep]); // Only reset when step actually changes
 
   const handleFeedbackChange = (feedbackData: any) => {
+    console.log("📝 FEEDBACK CHANGE:", feedbackData);
+    console.log("📝 feedbackData type:", typeof feedbackData, "truthy:", !!feedbackData);
+    
+    // Check if feedbackData has meaningful ratings
+    const hasRatings = feedbackData && feedbackData.ratings && Object.keys(feedbackData.ratings).length > 0;
+    const totalRatings = hasRatings ? Object.values(feedbackData.ratings).reduce((sum: number, category: any) => 
+      sum + Object.keys(category || {}).length, 0) : 0;
+    
+    console.log("📝 FEEDBACK VALIDATION:", {
+      hasRatings,
+      totalRatings,
+      feedbackDataStructure: feedbackData ? Object.keys(feedbackData) : null
+    });
+    
     setStructuredFeedback(feedbackData);
   };
 
-  const shouldShowFeedback = showResponse && (configStep === 2 || configStep === 3);
+  const shouldShowFeedback = showResponse && (configStep === 1); // Only step 1 now has feedback
+  
+  // Debug logging for button state
+  console.log("🔍 BUTTON STATE DEBUG:", {
+    configStep,
+    showResponse,
+    shouldShowFeedback,
+    structuredFeedback,
+    loading,
+    buttonDisabled: loading || (shouldShowFeedback && !structuredFeedback)
+  });
+
+  // Add useEffect for debugging
+  useEffect(() => {
+    console.log("🚨 ConfigModal State Change:", { configStep, showResponse, shouldShowFeedback, structuredFeedback });
+  }, [configStep, showResponse, shouldShowFeedback, structuredFeedback]);
+
+  // Add useEffect to track step changes specifically
+  useEffect(() => {
+    console.log("📈 CONFIG STEP CHANGED:", configStep);
+  }, [configStep]);
+
+  // Log button state when it would render
+  useEffect(() => {
+    if (configStep === 1 && showResponse) {
+      const isButtonDisabled = loading || (shouldShowFeedback && !structuredFeedback);
+      console.log("🔧 GENERATE BUTTON STATE:", {
+        loading,
+        shouldShowFeedback,
+        structuredFeedback,
+        isButtonDisabled
+      });
+    }
+  }, [configStep, showResponse, loading, shouldShowFeedback, structuredFeedback]);
 
   return (
     <Modal open={open} onClose={onClose}>
@@ -670,7 +764,7 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
             startIcon={<ListIcon />}
             onClick={onSectionSelection}
             variant="outlined"
-            size={window.innerWidth < 600 ? "small" : "medium"}
+            size={isSmallScreen ? "small" : "medium"}
             sx={{ 
               ml: { xs: 0, sm: 1 },
               mb: { xs: 1, sm: 0 },
@@ -695,7 +789,7 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
             onClick={() => setLineModalOpen(true)}
             color="success"
             variant="contained"
-            size={window.innerWidth < 600 ? "small" : "medium"}
+            size={isSmallScreen ? "small" : "medium"}
             sx={{ 
               ml: { xs: 0, sm: 1 }, 
               mb: { xs: 1, sm: 0 },
@@ -740,7 +834,7 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
             </Box>
           ) : (
             <>
-              {/* Step Title with custom typography for each step */}
+              {/* Step Title with custom typography for combined steps */}
               {(() => {
                 switch (configStep) {
                   case 0:
@@ -754,7 +848,7 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
                           fontSize: { xs: "1.25rem", sm: "1.5rem", md: "1.75rem" }
                         }}
                       >
-                        ส่วนที่ 1: ข้อมูลหลักสูตร
+                        ส่วนที่ 1: ข้อมูลหลักสูตรและจุดประสงค์การเรียนรู้
                       </Typography>
                     );
                   case 1:
@@ -768,35 +862,7 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
                           fontSize: { xs: "1.25rem", sm: "1.5rem", md: "1.75rem" }
                         }}
                       >
-                        ส่วนที่ 2: จุดประสงค์การเรียนรู้
-                      </Typography>
-                    );
-                  case 2:
-                    return (
-                      <Typography 
-                        variant="h5" 
-                        gutterBottom 
-                        sx={{ 
-                          color: "#f0fdf4", 
-                          fontWeight: 600,
-                          fontSize: { xs: "1.25rem", sm: "1.5rem", md: "1.75rem" }
-                        }}
-                      >
-                        ส่วนที่ 3: กระบวนการจัดกิจกรรมการเรียนรู้
-                      </Typography>
-                    );
-                  case 3:
-                    return (
-                      <Typography 
-                        variant="h5" 
-                        gutterBottom 
-                        sx={{ 
-                          color: "#f0fdf4", 
-                          fontWeight: 600,
-                          fontSize: { xs: "1.25rem", sm: "1.5rem", md: "1.75rem" }
-                        }}
-                      >
-                        ส่วนที่ 4: การวัดประเมินผล
+                        ส่วนที่ 2: แผนการเรียนรู้และการประเมินผล
                       </Typography>
                     );
                   default:
@@ -809,12 +875,7 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
                           fontSize: { xs: "1.125rem", sm: "1.25rem", md: "1.375rem" }
                         }}
                       >
-                        ส่วน {configStep + 1}:{" "}
-                        {currentFields.length === 1
-                          ? currentFields[0].label
-                          : currentFields.length === 0
-                          ? "กำลังประมวลผล..."
-                          : "โปรดระบุข้อมูลสำหรับการออกแบบแผนการสอน"}
+                        ส่วนที่ {configStep + 1}: กำลังประมวลผล...
                       </Typography>
                     );
                 }
@@ -1110,32 +1171,73 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
                 )}
               
 
-              {/* Show response box only if response is shown */}
-              {showResponse && response && (
-                <Box
-                  sx={{
-                    mt: 2,
-                    p: { xs: 1.5, sm: 2 },
-                    background: "rgba(240, 253, 244, 0.08)",
-                    backdropFilter: "blur(12px)",
-                    WebkitBackdropFilter: "blur(12px)",
-                    border: "1px solid rgba(34, 197, 94, 0.2)",
-                    boxShadow: "0 8px 32px 0 rgba(21, 128, 61, 0.15)",
-                    borderRadius: 2,
-                    height: shouldShowFeedback 
-                      ? { xs: 200, sm: 220, md: 250 }
-                      : { xs: 400, sm: 400, md: 400 },
-                    maxHeight: shouldShowFeedback 
-                      ? { xs: 200, sm: 220, md: 250 }
-                      : { xs: 400, sm: 400, md: 400 },
-                    minHeight: shouldShowFeedback 
-                      ? { xs: 200, sm: 220, md: 250 }
-                      : { xs: 400, sm: 400, md: 400 },
-                    overflowY: "auto",
-                    overflowX: "auto",
-                  }}
-                >
-                  <JsonDynamicRenderer data={response} />
+              {/* Show response box with tabs for combined steps */}
+              {showResponse && responses && Object.keys(responses).length > 0 && (
+                <Box sx={{ mt: 2 }}>
+                  {/* Tabs for multiple outputs */}
+                  {Object.keys(responses).length > 1 && (
+                    <Tabs
+                      value={selectedTab}
+                      onChange={(_, newValue) => setSelectedTab(newValue)}
+                      sx={{
+                        mb: 1,
+                        "& .MuiTabs-indicator": {
+                          backgroundColor: "#22c55e",
+                        },
+                        "& .MuiTab-root": {
+                          color: "#bbf7d0",
+                          "&.Mui-selected": {
+                            color: "#f0fdf4",
+                            fontWeight: 600,
+                          },
+                        },
+                      }}
+                    >
+                      {Object.keys(responses).map((key, index) => (
+                        <Tab
+                          key={key}
+                          label={
+                            key === "curriculum" ? "ข้อมูลหลักสูตร" :
+                            key === "objectives" ? "จุดประสงค์การเรียนรู้" :
+                            key === "lessonPlan" ? "แผนการเรียนรู้" :
+                            key === "evaluation" ? "การประเมินผล" : 
+                            `ส่วนที่ ${index + 1}`
+                          }
+                          sx={{ fontSize: { xs: "0.7rem", sm: "0.875rem" } }}
+                        />
+                      ))}
+                    </Tabs>
+                  )}
+                  
+                  <Box
+                    sx={{
+                      p: { xs: 1.5, sm: 2 },
+                      background: "rgba(240, 253, 244, 0.08)",
+                      backdropFilter: "blur(12px)",
+                      WebkitBackdropFilter: "blur(12px)",
+                      border: "1px solid rgba(34, 197, 94, 0.2)",
+                      boxShadow: "0 8px 32px 0 rgba(21, 128, 61, 0.15)",
+                      borderRadius: 2,
+                      height: shouldShowFeedback 
+                        ? { xs: 200, sm: 220, md: 250 }
+                        : { xs: 400, sm: 400, md: 400 },
+                      maxHeight: shouldShowFeedback 
+                        ? { xs: 200, sm: 220, md: 250 }
+                        : { xs: 400, sm: 400, md: 400 },
+                      minHeight: shouldShowFeedback 
+                        ? { xs: 200, sm: 220, md: 250 }
+                        : { xs: 400, sm: 400, md: 400 },
+                      overflowY: "auto",
+                      overflowX: "auto",
+                    }}
+                  >
+                    <JsonDynamicRenderer 
+                      data={Object.keys(responses).length > 1 
+                        ? Object.values(responses)[selectedTab] 
+                        : Object.values(responses)[0]
+                      } 
+                    />
+                  </Box>
                 </Box>
               )}
 
@@ -1146,6 +1248,18 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
                   onFeedbackChange={handleFeedbackChange}
                 />
               )}
+
+              {/* Debug which button condition is active */}
+              {console.log("🔧 BUTTON RENDER CONDITIONS:", {
+                configStep,
+                stepConfigFieldsLength: stepConfigFields.length,
+                showResponse,
+                isLastStep: configStep === stepConfigFields.length - 1,
+                condition1: (configStep === stepConfigFields.length - 1) && showResponse,
+                condition2: !showResponse,
+                condition3: configStep === 0,
+                condition4: "default (step 1 with feedback)"
+              })}
 
               <Box
                 sx={{ 
@@ -1160,7 +1274,7 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
                   variant="outlined"
                   onClick={onPreviousStep}
                   disabled={configStep === 0 && !showResponse}
-                  size={window.innerWidth < 600 ? "small" : "medium"}
+                  size={isSmallScreen ? "small" : "medium"}
                   sx={{
                     order: { xs: 2, sm: 1 },
                     background: "rgba(156, 163, 175, 0.15)",
@@ -1181,12 +1295,12 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
                 >
                   กลับ
                 </Button>
-                {configStep === stepConfigFields.length - 1 ? (
+                {(configStep === stepConfigFields.length - 1) && showResponse ? (
                   <Button
                     variant="contained"
                     onClick={onSubmit}
                     disabled={loading}
-                    size={window.innerWidth < 600 ? "small" : "medium"}
+                    size={isSmallScreen ? "small" : "medium"}
                     sx={{
                       order: { xs: 1, sm: 2 },
                       background: "rgba(34, 197, 94, 0.2)",
@@ -1207,14 +1321,14 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
                       },
                     }}
                   >
-                    {loading ? "Generating..." : "Generate"}
+                    {loading ? "Generating..." : "Generate (Final Step)"}
                   </Button>
                 ) : !showResponse ? (
                   <Button
                     variant="contained"
                     onClick={onStepSubmit}
                     disabled={loading}
-                    size={window.innerWidth < 600 ? "small" : "medium"}
+                    size={isSmallScreen ? "small" : "medium"}
                     sx={{
                       order: { xs: 1, sm: 2 },
                       background: "rgba(34, 197, 94, 0.2)",
@@ -1237,12 +1351,13 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
                   >
                     {loading ? "Loading..." : "ถัดไป"}
                   </Button>
-                ) : (
+                ) : configStep === 0 ? (
+                  // Step 0 with response - move to next step input
                   <Button
                     variant="contained"
-                    onClick={() => onFeedbackSubmit(structuredFeedback)}
-                    disabled={loading || (shouldShowFeedback && !structuredFeedback)}
-                    size={window.innerWidth < 600 ? "small" : "medium"}
+                    onClick={onNextStep}
+                    disabled={loading}
+                    size={isSmallScreen ? "small" : "medium"}
                     sx={{
                       order: { xs: 1, sm: 2 },
                       background: "rgba(34, 197, 94, 0.2)",
@@ -1263,7 +1378,54 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
                       },
                     }}
                   >
-                    {shouldShowFeedback ? "ส่งความเห็นและถัดไป" : "ถัดไป"}
+                    ถัดไป
+                  </Button>
+                ) : (
+                  // Step 1 with response - submit feedback and generate
+                  <Button
+                    variant="contained"
+                    onClick={() => {
+                      console.log("🔥 ONCLICK HANDLER STARTED");
+                      try {
+                        // First submit feedback, then generate
+                        console.log("🚀 GENERATE BUTTON CLICKED with feedback:", structuredFeedback);
+                        console.log("🚀 BUTTON CONDITIONS:", {
+                          loading,
+                          shouldShowFeedback,
+                          structuredFeedback: !!structuredFeedback,
+                          structuredFeedbackContent: structuredFeedback,
+                          disabledCondition: loading || (shouldShowFeedback && !structuredFeedback)
+                        });
+                        onFeedbackSubmit(structuredFeedback);
+                        onSubmit();
+                        console.log("🔥 ONCLICK HANDLER COMPLETED");
+                      } catch (error) {
+                        console.error("🚨 ERROR IN ONCLICK HANDLER:", error);
+                      }
+                    }}
+                    disabled={loading || (shouldShowFeedback && !structuredFeedback)}
+                    size={isSmallScreen ? "small" : "medium"}
+                    sx={{
+                      order: { xs: 1, sm: 2 },
+                      background: "rgba(34, 197, 94, 0.2)",
+                      backdropFilter: "blur(12px)",
+                      WebkitBackdropFilter: "blur(12px)",
+                      border: "1px solid rgba(34, 197, 94, 0.3)",
+                      color: "#bbf7d0",
+                      "&:hover": {
+                        background: "rgba(34, 197, 94, 0.3)",
+                        borderColor: "rgba(34, 197, 94, 0.5)",
+                        boxShadow: "0 8px 25px 0 rgba(34, 197, 94, 0.4)",
+                        transform: "translateY(-2px)",
+                      },
+                      "&:disabled": {
+                        background: "rgba(34, 197, 94, 0.1)",
+                        borderColor: "rgba(34, 197, 94, 0.15)",
+                        color: "rgba(34, 197, 94, 0.4)",
+                      },
+                    }}
+                  >
+                    Generate (Step 1 with Feedback)
                   </Button>
                 )}
               </Box>

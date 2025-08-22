@@ -23,6 +23,7 @@ import LoginModal from "@/components/LoginModal";
 import ListIcon from "@mui/icons-material/List";
 import HomeIcon from "@mui/icons-material/Home";
 import InclusiveLearningLogo from "@/components/InclusiveLearningLogo";
+import { set } from "zod";
 
 const FileViewer = dynamic(() => import("react-file-viewer"), { ssr: false }) as any;
 
@@ -51,7 +52,7 @@ function SessionPageContent() {
   const [userId, setUserId] = useState<string | null>(null);
   const [prompt, setPrompt] = useState("");
   const [generateTextResponse, setGenerateTextResponse] = useState("");
-  const [configResponse, setConfigResponse] = useState("");
+  const [configResponse, setConfigResponse] = useState<{[key: string]: string}>({});
   const [generateJsonResponse, setGenerateJsonResponse] = useState(null);
   const [loading, setLoading] = useState(false);
   const [generateStep, setGenerateStep] = useState(0);
@@ -85,7 +86,7 @@ function SessionPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Centralized fetchSession using apiCallWith401
+// Centralized fetchSession using apiCallWith401
   const fetchSession = (sessionId?: string | null) => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -175,40 +176,50 @@ function SessionPageContent() {
   };
 
   const handleConfigNextStep = async () => {
-    // Renamed handler
+    console.log("Advancing to next step:", configStep);
+    // Move to next step and show input fields
     if (!showResponse) return;
+    
     const nextStep = configStep + 1;
-    console.log("configStep:", configStep);
+    console.log("Moving from configStep:", configStep, "to:", nextStep);
+    
+    // Update the database with the new step
+    try {
+      const token = localStorage.getItem("auth-token");
+      const sessionId = localStorage.getItem("session-id");
+      
+      if (token && sessionId) {
+        const updateResponse = await fetch("/api/session", {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            sessionId: sessionId,
+            configStep: nextStep
+          })
+        });
+
+        if (!updateResponse.ok) {
+          console.error("Failed to update step in database");
+        } else {
+          console.log("Successfully updated configStep to", nextStep, "in database");
+        }
+      }
+    } catch (error) {
+      console.error("Error updating step:", error);
+    }
+    
+    // Simply move to next step and hide response to show input fields
     setConfigStep(nextStep);
     setShowResponse(false);
-    setConfigResponse("");
-
-    if (stepConfigFields[nextStep] && stepConfigFields[nextStep].length === 0) {
-      setLoading(true);
-      try {
-        const token = localStorage.getItem("token");
-        const res = await axios.post(
-          `/api/chat/step/${nextStep}`,
-          { ...configFields, sessionId: selectedSessionId },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-        const data = res.data;
-        setConfigResponse(data.response);
-        setShowResponse(true);
-      } catch (error) {
-        console.error("Error auto-advancing step:", error);
-      }
-      setLoading(false);
-    }
+    setConfigResponse({});
   };
 
   const handleConfigFieldChange = (field: string, value: any) => {
     setShowResponse(false);
-    setConfigResponse("");
+    setConfigResponse({});
     if (field === "studentType") {
       setConfigFields((prev) => ({
         ...prev,
@@ -225,8 +236,15 @@ function SessionPageContent() {
     await apiCallWith401(
       async () => {
         const token = localStorage.getItem("token");
+        
+        // For step 0: get curriculum + objectives combined
+        // For step 1: get lesson plan + evaluation combined
+        const endpoint = configStep === 0 
+          ? `/api/chat/step/0` 
+          : `/api/chat/step/1`;
+        
         const res = await axios.post(
-          `/api/chat/step/${configStep}`,
+          endpoint,
           { ...configFields, sessionId: selectedSessionId },
           {
             headers: {
@@ -235,7 +253,7 @@ function SessionPageContent() {
           }
         );
         const data = res.data;
-        setConfigResponse(data.response);
+        setConfigResponse(data.responses || {});
         setShowResponse(true);
       },
       () => setLoginModalOpen(true)
@@ -255,7 +273,7 @@ function SessionPageContent() {
 
     if (showResponse) {
       setShowResponse(false);
-      setConfigResponse("");
+      setConfigResponse({});
     } else {
       setLoading(true);
       await apiCallWith401(
@@ -272,7 +290,7 @@ function SessionPageContent() {
             }
           );
           const data = res.data;
-          setConfigResponse(data.configResponse || "");
+          setConfigResponse(data.configResponse || {});
           setShowResponse(true);
         },
         () => setLoginModalOpen(true)
@@ -396,62 +414,52 @@ function SessionPageContent() {
   };
 
   const handleFeedbackSubmit = async (feedbackData: any) => {
-    console.log("Submitting structured feedback:", feedbackData);
+    console.log("🎯 FEEDBACK SUBMISSION TRIGGERED - Step:", configStep);
+    console.log("🎯 Feedback Data:", feedbackData);
+    console.log("🎯 Selected Session ID:", selectedSessionId);
     setLoading(true);
     
-    // For steps 2 and 3, submit feedback then proceed to next step
-    if (configStep === 2 || configStep === 3) {
-      await apiCallWith401(
-        async () => {
-          const token = localStorage.getItem("token");
-          
-          // Save structured feedback for fine-tuning
-          // Server will retrieve all session data using selectedSessionId
-          await axios.post(
-            "/api/feedback/finetune",
-            {
-              sessionId: selectedSessionId,
-              feedbackData
-            },
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            }
-          );
-        },
-        () => setLoginModalOpen(true)
-      );
-    }
-    
-    // Now proceed to next step (regardless of feedback submission)
-    const nextStep = configStep + 1;
-    console.log("Moving from configStep:", configStep, "to:", nextStep);
-    setConfigStep(nextStep);
-    setShowResponse(false);
-    setConfigResponse("");
-
-    // If next step has no input fields, auto-submit it
-    if (stepConfigFields[nextStep] && stepConfigFields[nextStep].length === 0) {
+    // For step 1, submit feedback then proceed to final generation
+    if (configStep === 1) {
+      console.log("🎯 Attempting to submit feedback to API...");
       try {
-        const token = localStorage.getItem("token");
-        const res = await axios.post(
-          `/api/chat/step/${nextStep}`,
-          { ...configFields, sessionId: selectedSessionId },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+        await apiCallWith401(
+          async () => {
+            const token = localStorage.getItem("token");
+            console.log("🎯 Token available:", !!token);
+            
+            // Save structured feedback for fine-tuning
+            // Server will retrieve all session data using selectedSessionId
+            const response = await axios.post(
+              "/api/feedback/finetune",
+              {
+                sessionId: selectedSessionId,
+                feedbackData
+              },
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            );
+            
+            console.log("🎯 Feedback API Response:", response.data);
+          },
+          () => {
+            console.log("🎯 Authentication failed during feedback submission");
+            setLoginModalOpen(true);
           }
         );
-        const data = res.data;
-        setConfigResponse(data.response);
-        setShowResponse(true);
+        console.log("🎯 Feedback submission completed successfully");
       } catch (error) {
-        console.error("Error auto-advancing step:", error);
+        console.error("🎯 Error during feedback submission:", error);
       }
+    } else {
+      console.log("🎯 Skipping feedback submission - not on step 1 (current step:", configStep, ")");
     }
     
+    // After step 1 feedback, we're done with steps - ready for final generation
+    console.log("🎯 Feedback submitted for step:", configStep);
     setLoading(false);
   };
 
@@ -662,7 +670,7 @@ function SessionPageContent() {
           loading={loading}
           configStep={configStep}
           configFields={configFields}
-          response={configResponse}
+          responses={configResponse}
           showResponse={showResponse}
           onClose={() => setModalOpen(false)}
           onChange={handleConfigFieldChange}

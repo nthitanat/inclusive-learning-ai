@@ -42,25 +42,43 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const basePipeline = new OptimizedLessonPipeline();
     
     switch (configStep) {
+      // Combined Step 0: Curriculum + Objectives
       case "0": {
         try {
           await basePipeline.initialize(body.subject);
-          const result = await basePipeline.step0(body.subject, body.lessonTopic, body.level);
           
+          // Run steps 0 and 1 sequentially for now (can be optimized later)
+          const curriculumResult = await basePipeline.step0(body.subject, body.lessonTopic, body.level);
+          
+          // Update session with step 0 results
           await updateSessionById(sessionId, {
-            configStep: parseInt(configStep) + 1,
+            configStep: parseInt(configStep)+1,
             subject: body.subject,
             lessonTopic: body.lessonTopic,
-            learningArea: result["กลุ่มสาระการเรียนรู้"],
+            learningArea: curriculumResult["กลุ่มสาระการเรียนรู้"],
             level: body.level,
-            standard: result["มาตรฐาน"],
-            interimIndicators: result["ตัวชี้วัดระหว่างทาง"],
-            finalIndicators: result["ตัวชี้วัดปลายทาง"],
-            content: result["สาระการเรียนรู้"],
-            keyContent: result["สาระสำคัญ"]
+            standard: curriculumResult["มาตรฐาน"],
+            interimIndicators: curriculumResult["ตัวชี้วัดระหว่างทาง"],
+            finalIndicators: curriculumResult["ตัวชี้วัดปลายทาง"],
+            content: curriculumResult["สาระการเรียนรู้"],
+            keyContent: curriculumResult["สาระสำคัญ"]
           });
 
-          return NextResponse.json({ response: result });
+          // Get updated session and run step 1
+          const updatedSession = await getSessionById(sessionId);
+          const objectivesResult = await basePipeline.step1(updatedSession);
+          
+          await updateSessionById(sessionId, {
+            objectives: objectivesResult["จุดประสงค์การเรียนรู้"],
+            keyCompetencies: objectivesResult["สมรรถนะผู้เรียน"],
+          });
+
+          return NextResponse.json({ 
+            responses: {
+              curriculum: curriculumResult,
+              objectives: objectivesResult
+            }
+          });
         } catch (error: any) {
           if (error?.message?.includes("ไม่พบข้อมูลหลักสูตร")) {
             return NextResponse.json({ error: "ไม่พบข้อมูลหลักสูตร กรุณาลองใหม่" }, { status: 404 });
@@ -69,70 +87,137 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         }
       }
 
+      // Combined Step 1: Lesson Plan + Evaluation
       case "1": {
-        const result = await basePipeline.step1(session);
+        const numStudents = body.numStudents || 30;
+        const studentType = body.studentType || [];
+        const studyPeriod = body.studyPeriod || 9;
+
+        // Run lesson plan and evaluation sequentially for now
+        console.log("🤖 Running combined lesson plan and evaluation");
         
+        const lessonPlanResult = await basePipeline.step2Agent(session, numStudents, studentType, studyPeriod);
+        
+        // Update session with lesson plan results
         await updateSessionById(sessionId, {
           configStep: parseInt(configStep) + 1,
-          objectives: result["จุดประสงค์การเรียนรู้"],
-          keyCompetencies: result["สมรรถนะผู้เรียน"],
+          studyPeriod: studyPeriod,
+          numStudents: numStudents,
+          studentType: studentType,
+          lessonPlan: lessonPlanResult.response,
+          teachingMaterials: lessonPlanResult.teachingMaterials,
+          enhancedData: lessonPlanResult.enhancedData,
+          searchMetadata: lessonPlanResult.searchMetadata,
+        });
+        
+        // Get updated session and run evaluation
+        const updatedSession = await getSessionById(sessionId);
+        const evaluationResult = await basePipeline.step3(updatedSession);
+        
+        await updateSessionById(sessionId, {
+          evaluation: evaluationResult,
         });
 
-        return NextResponse.json({ response: result });
+        return NextResponse.json({
+          responses: {
+            lessonPlan: lessonPlanResult,
+            evaluation: evaluationResult
+          }
+        });
       }
+
+      // Legacy individual steps (for backward compatibility)
+      // case "0": {
+      //   try {
+      //     await basePipeline.initialize(body.subject);
+      //     const result = await basePipeline.step0(body.subject, body.lessonTopic, body.level);
+          
+      //     await updateSessionById(sessionId, {
+      //       configStep: parseInt(configStep) + 1,
+      //       subject: body.subject,
+      //       lessonTopic: body.lessonTopic,
+      //       learningArea: result["กลุ่มสาระการเรียนรู้"],
+      //       level: body.level,
+      //       standard: result["มาตรฐาน"],
+      //       interimIndicators: result["ตัวชี้วัดระหว่างทาง"],
+      //       finalIndicators: result["ตัวชี้วัดปลายทาง"],
+      //       content: result["สาระการเรียนรู้"],
+      //       keyContent: result["สาระสำคัญ"]
+      //     });
+
+      //     return NextResponse.json({ response: result });
+      //   } catch (error: any) {
+      //     if (error?.message?.includes("ไม่พบข้อมูลหลักสูตร")) {
+      //       return NextResponse.json({ error: "ไม่พบข้อมูลหลักสูตร กรุณาลองใหม่" }, { status: 404 });
+      //     }
+      //     throw error;
+      //   }
+      // }
+
+      // case "1": {
+      //   const result = await basePipeline.step1(session);
+        
+      //   await updateSessionById(sessionId, {
+      //     configStep: parseInt(configStep) + 1,
+      //     objectives: result["จุดประสงค์การเรียนรู้"],
+      //     keyCompetencies: result["สมรรถนะผู้เรียน"],
+      //   });
+
+      //   return NextResponse.json({ response: result });
+      // }
+
+      // // case "2": {
+      // //   const numStudents = body.numStudents || 30;
+      // //   const studentType = body.studentType || [];
+      // //   const studyPeriod = body.studyPeriod || 9;
+
+      // //   const result = await basePipeline.step2(session, numStudents, studentType, studyPeriod);
+        
+      // //   await updateSessionById(sessionId, {
+      // //     configStep: parseInt(configStep) + 1,
+      // //     studyPeriod: studyPeriod,
+      // //     numStudents: numStudents,
+      // //     studentType: studentType,
+      // //     lessonPlan: result.response,
+      // //     teachingMaterials: result.teachingMaterials,
+      // //   });
+
+      // //   return NextResponse.json(result);
+      // // }
 
       // case "2": {
       //   const numStudents = body.numStudents || 30;
       //   const studentType = body.studentType || [];
       //   const studyPeriod = body.studyPeriod || 9;
 
-      //   const result = await basePipeline.step2(session, numStudents, studentType, studyPeriod);
+      //   console.log("🤖 Using Step 2 Agent with enhanced search and reasoning");
+        
+      //   const result = await basePipeline.step2Agent(session, numStudents, studentType, studyPeriod);
         
       //   await updateSessionById(sessionId, {
-      //     configStep: parseInt(configStep) + 1,
+      //     configStep: parseInt(configStep.replace('-agent', '')) + 1,
       //     studyPeriod: studyPeriod,
       //     numStudents: numStudents,
       //     studentType: studentType,
       //     lessonPlan: result.response,
       //     teachingMaterials: result.teachingMaterials,
+      //     enhancedData: result.enhancedData,
+      //     searchMetadata: result.searchMetadata,
       //   });
 
       //   return NextResponse.json(result);
       // }
 
-      case "2": {
-        const numStudents = body.numStudents || 30;
-        const studentType = body.studentType || [];
-        const studyPeriod = body.studyPeriod || 9;
-
-        console.log("🤖 Using Step 2 Agent with enhanced search and reasoning");
+      // case "3": {
+      //   const result = await basePipeline.step3(session);
         
-        const result = await basePipeline.step2Agent(session, numStudents, studentType, studyPeriod);
-        
-        await updateSessionById(sessionId, {
-          configStep: parseInt(configStep.replace('-agent', '')) + 1,
-          studyPeriod: studyPeriod,
-          numStudents: numStudents,
-          studentType: studentType,
-          lessonPlan: result.response,
-          teachingMaterials: result.teachingMaterials,
-          enhancedData: result.enhancedData,
-          searchMetadata: result.searchMetadata,
-        });
+      //   await updateSessionById(sessionId, {
+      //     configStep: parseInt(configStep) + 1,
+      //     evaluation: result,
+      //   });
 
-        return NextResponse.json(result);
-      }
-
-      case "3": {
-        const result = await basePipeline.step3(session);
-        
-        await updateSessionById(sessionId, {
-          configStep: parseInt(configStep) + 1,
-          evaluation: result,
-        });
-
-        return NextResponse.json({ response: result });
-      }
+      //   return NextResponse.json({ response: result });
+      // }
 
       // Advanced: Parallel processing for steps 1-2
       case "parallel-1-2": {

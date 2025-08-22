@@ -6,10 +6,14 @@ import jwt from "jsonwebtoken";
 const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret";
 
 export async function POST(req: NextRequest) {
+  console.log("🔥 FEEDBACK API: POST request received");
   await connectDB();
   
   const token = req.headers.get("Authorization")?.split(" ")[1];
+  console.log("🔥 FEEDBACK API: Token present:", !!token);
+  
   if (!token) {
+    console.log("🔥 FEEDBACK API: No token provided");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   
@@ -17,22 +21,31 @@ export async function POST(req: NextRequest) {
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as any;
     userId = decoded.userId;
+    console.log("🔥 FEEDBACK API: User ID:", userId);
   } catch {
+    console.log("🔥 FEEDBACK API: Invalid token");
     return NextResponse.json({ error: "Invalid token" }, { status: 401 });
   }
 
   try {
-    const { sessionId, feedbackData } = await req.json();
+    const body = await req.json();
+    console.log("🔥 FEEDBACK API: Request body:", body);
+    const { sessionId, feedbackData } = body;
     
     if (!sessionId || !feedbackData) {
+      console.log("🔥 FEEDBACK API: Missing required fields:", { sessionId: !!sessionId, feedbackData: !!feedbackData });
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
+    console.log("🔥 FEEDBACK API: Fetching session data for ID:", sessionId);
     // Fetch session data from database using sessionId
     const session = await getSessionById(sessionId);
     if (!session || session.userId?.toString() !== userId) {
+      console.log("🔥 FEEDBACK API: Session not found or unauthorized. Session exists:", !!session, "User match:", session?.userId?.toString() === userId);
       return NextResponse.json({ error: "Session not found or unauthorized" }, { status: 404 });
     }
+
+    console.log("🔥 FEEDBACK API: Session found, proceeding with finetune data creation...");
 
     // Extract session data for fine-tuning
     const sessionData = {
@@ -43,7 +56,12 @@ export async function POST(req: NextRequest) {
       numStudents: session.numStudents,
       studyPeriod: session.studyPeriod,
       content: session.content,
-      response: feedbackData.step === 2 ? session.lessonPlan : session.evaluation
+      // For new combined workflow: only feedback on step 1 (combined lesson plan + evaluation)
+      response: feedbackData.step === 1 ? {
+        lessonPlan: session.lessonPlan,
+        teachingMaterials: session.teachingMaterials,
+        evaluation: session.evaluation
+      } : null
     };
 
     const db = await connectDB();
@@ -83,14 +101,16 @@ export async function POST(req: NextRequest) {
       // Metadata
       metadata: {
         step: feedbackData.step,
-        stepName: feedbackData.step === 2 ? "lesson_plan_materials" : "evaluation_methods",
+        stepName: feedbackData.step === 1 ? "combined_lesson_plan_evaluation" : "combined_curriculum_objectives",
         qualityLabel: getQualityLabel(calculateOverallScore(feedbackData.ratings)),
         createdAt: new Date().toISOString(),
-        version: "1.0"
+        version: "2.0" // Updated for combined workflow
       }
     };
 
     const result = await db.collection("finetune_data").insertOne(finetuneData);
+    
+    console.log("🔥 FEEDBACK API: Successfully inserted finetune data with ID:", result.insertedId);
     
     return NextResponse.json({ 
       success: true, 
@@ -99,7 +119,7 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error("Error saving fine-tune feedback:", error);
+    console.error("🔥 FEEDBACK API: Error saving fine-tune feedback:", error);
     return NextResponse.json(
       { error: "Failed to save feedback", details: error.message },
       { status: 500 }
@@ -206,15 +226,15 @@ function getQualityLabel(score: number): string {
 }
 
 function generateFineTuningFormat(sessionData: any, feedbackData: any): any {
-  const stepName = feedbackData.step === 2 ? "lesson_plan_materials" : "evaluation_methods";
+  const stepName = feedbackData.step === 1 ? "combined_lesson_plan_evaluation" : "combined_curriculum_objectives";
   const isHighQuality = calculateOverallScore(feedbackData.ratings) >= 3.5;
   
   const messages = [
     {
       role: "system",
-      content: feedbackData.step === 2 
-        ? "คุณคือผู้เชี่ยวชาญด้านการออกแบบกระบวนการจัดการเรียนรู้ UDL และ Inclusive Education ที่มีข้อมูลเชิงลึกจากการค้นคว้า ตอบเป็น JSON เท่านั้น"
-        : "คุณคือผู้เชี่ยวชาญด้านการวัดและประเมินผล ตอบเป็น JSON เท่านั้น"
+      content: feedbackData.step === 1 
+        ? "คุณคือผู้เชี่ยวชาญด้านการออกแบบกระบวนการจัดการเรียนรู้ UDL และ Inclusive Education ที่มีข้อมูลเชิงลึกจากการค้นคว้า รวมถึงการวัดและประเมินผล ตอบเป็น JSON เท่านั้น"
+        : "คุณคือผู้เชี่ยวชาญด้านหลักสูตรและการกำหนดวัตถุประสงค์การเรียนรู้ ตอบเป็น JSON เท่านั้น"
     },
     {
       role: "user",
@@ -245,8 +265,8 @@ function generateFineTuningFormat(sessionData: any, feedbackData: any): any {
 }
 
 function generateUserPrompt(sessionData: any, step: number): string {
-  if (step === 2) {
-    return `ออกแบบกระบวนการจัดการเรียนรู้แบบ UDL โดยคำนึงถึงความแตกต่างของนักเรียนแต่ละประเภทในห้อง
+  if (step === 1) {
+    return `ออกแบบกระบวนการจัดการเรียนรู้แบบ UDL โดยคำนึงถึงความแตกต่างของนักเรียนแต่ละประเภทในห้อง รวมถึงการวัดและประเมินผล
 
 **ข้อมูลพื้นฐาน:**
 - กลุ่มสาระ: ${sessionData.subject}
@@ -255,15 +275,27 @@ function generateUserPrompt(sessionData: any, step: number): string {
 - เนื้อหา: ${JSON.stringify(sessionData.content)}
 - จำนวนชั่วโมงทั้งหมดในการสอน: ${sessionData.studyPeriod} ชั่วโมง
 - จำนวนนักเรียน: ${sessionData.numStudents} คน
-- ประเภทนักเรียน: ${JSON.stringify(sessionData.studentType)}`;
-  } else if (step === 3) {
-    return `ออกแบบกระบวนการวัดและประเมินผลการเรียนรู้สำหรับแผนการจัดกิจกรรมการเรียนรู้:
+- ประเภทนักเรียน: ${JSON.stringify(sessionData.studentType)}
 
-**ข้อมูลอินพุต:**
+กรุณาออกแบบ:
+1. แผนการจัดการเรียนรู้ (lessonPlan)
+2. สื่อ/อุปกรณ์/แหล่งเรียนรู้ (teachingMaterials)  
+3. กระบวนการวัดและประเมินผล (evaluation)`;
+  } else if (step === 0) {
+    return `วิเคราะห์หลักสูตรและกำหนดวัตถุประสงค์การเรียนรู้
+
+**ข้อมูลพื้นฐาน:**
 - กลุ่มสาระ: ${sessionData.subject}
 - เรื่อง: ${sessionData.lessonTopic}
 - ระดับชั้น: ${sessionData.level}
-- แผนการจัดกิจกรรม: ${JSON.stringify(sessionData.response)}`;
+- จำนวนนักเรียน: ${sessionData.numStudents} คน
+- ประเภทนักเรียน: ${JSON.stringify(sessionData.studentType)}
+
+กรุณาวิเคราะห์และกำหนด:
+1. มาตรฐานการเรียนรู้ (standard)
+2. ตัวชี้วัด (indicators)
+3. วัตถุประสงค์การเรียนรู้ (objectives)
+4. สาระสำคัญ (content)`;
   }
   return "";
 }
