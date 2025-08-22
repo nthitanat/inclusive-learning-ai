@@ -7,6 +7,7 @@ import {
   updateUser,
   deleteUser
 } from '@/models/user';
+import bcrypt from 'bcrypt';
 
 // GET: /api/admin/users or /api/admin/users?id=xxx or /api/admin/users?email=xxx
 export async function GET(request: Request) {
@@ -33,6 +34,11 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const data = await request.json();
   try {
+    // Hash password if provided
+    if (data.password) {
+      data.password = await bcrypt.hash(data.password, 10);
+    }
+    
     const result = await createUser(data);
     return NextResponse.json({ insertedId: result.insertedId });
   } catch (e) {
@@ -47,6 +53,14 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: 'Missing id' }, { status: 400 });
   }
   try {
+    // Hash password if provided and not empty
+    if (updateData.password && updateData.password.trim() !== '') {
+      updateData.password = await bcrypt.hash(updateData.password, 10);
+    } else if (updateData.password === '') {
+      // Remove password field if empty (don't update password)
+      delete updateData.password;
+    }
+    
     const result = await updateUser(id, updateData);
     return NextResponse.json({ modifiedCount: result.modifiedCount });
   } catch (e) {

@@ -27,9 +27,9 @@ import AppRegistrationIcon from "@mui/icons-material/AppRegistration";
 import PlayCircleOutlineIcon from "@mui/icons-material/PlayCircleOutline";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import LineQROpenModal from "./LineQROpenModal";
-import CUINetQROpenModal from "./CUINetQROpenModal";
 import LineIcon from "./LineIcon";
 import DemoVideoModal from "./DemoVideoModal";
+import InclusiveLearningLogo from "./InclusiveLearningLogo";
 
 interface LoginModalProps {
   open: boolean;
@@ -49,7 +49,6 @@ export default function LoginModal({ open, onLoginSuccess, forceSessionStep, for
   const [sessions, setSessions] = useState<any[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [lineModalOpen, setLineModalOpen] = useState(false);
-  const [cuinetModalOpen, setCuinetModalOpen] = useState(false);
   const [demoVideoOpen, setDemoVideoOpen] = useState(false);
 
   useEffect(() => {
@@ -229,9 +228,63 @@ export default function LoginModal({ open, onLoginSuccess, forceSessionStep, for
       </Backdrop>
       {step === 0 ? (
         <>
-          <DialogTitle sx={{ color: "#f0fdf4", fontWeight: 600 }}>AI-Inclusive Classroom</DialogTitle>
+          <DialogTitle sx={{ color: "#f0fdf4", fontWeight: 600, display: "flex", alignItems: "center" }}>
+            <Box 
+              sx={{ 
+                display: "flex", 
+                alignItems: "center", 
+                justifyContent: "center",
+                mr: 2,
+                width: 40,
+                height: 40,
+                borderRadius: "50%",
+                border: "2px solid rgba(34, 197, 94, 0.3)",
+                background: "rgba(255, 255, 255, 0.9)",
+                padding: "4px",
+                boxShadow: "0 4px 15px 0 rgba(34, 197, 94, 0.2)",
+                overflow: "hidden",
+                flexShrink: 0,
+              }}
+            >
+              <img
+                src="/chulalongkorn-logo.png"
+                alt="Chulalongkorn University"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "contain",
+                }}
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  target.parentElement!.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: rgba(34, 197, 94, 0.2); color: #22c55e; font-weight: bold; font-size: 10px; text-align: center;">CU</div>';
+                }}
+              />
+            </Box>
+            <InclusiveLearningLogo 
+              sx={{ 
+                fontSize: 35, 
+                color: "#22c55e", 
+                mr: 2,
+                filter: "drop-shadow(0 2px 8px rgba(21, 128, 61, 0.3))"
+              }} 
+            />
+            AI-Inclusive Classroom
+          </DialogTitle>
           <DialogContent>
             <Box sx={{ minWidth: 400, py: 2, textAlign: "center" }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "rgba(240, 253, 244, 0.6)",
+                  fontWeight: 400,
+                  fontStyle: "italic",
+                  fontSize: "0.8rem",
+                  mb: 2,
+                }}
+              >
+                by Prof.Dr.Jaitip Na Songkhla and Thitanat Na Songkhla
+              </Typography>
               <Typography variant="h6" gutterBottom sx={{ color: "#dcfce7", fontWeight: 600 }}>
                 ยินดีต้อนรับ!
               </Typography>
@@ -362,7 +415,7 @@ export default function LoginModal({ open, onLoginSuccess, forceSessionStep, for
                 ลงทะเบียน
               </Button>
               {/* Replace the two Line buttons with a flex row */}
-              <Box sx={{ mt: 2, display: "flex", gap: 2 }}>
+              <Box sx={{ mt: 2, display: "flex", gap: 2, justifyContent: "center" }}>
                 <Button
                   variant="contained"
                   startIcon={<LineIcon />}
@@ -371,36 +424,61 @@ export default function LoginModal({ open, onLoginSuccess, forceSessionStep, for
                     bgcolor: "#06C755",
                     color: "#fff",
                     "&:hover": { bgcolor: "#05b94a" },
-                    flex: 1,
                   }}
-                  fullWidth={false}
                 >
                   ติดต่อสอบถาม Line OA
                 </Button>
-                <Button
-                  variant="contained"
-                  startIcon={<LineIcon />}
-                  onClick={() => setCuinetModalOpen(true)}
-                  sx={{
-                    bgcolor: "#06C755",
-                    color: "#fff",
-                    "&:hover": { bgcolor: "#05b94a" },
-                    flex: 1,
-                  }}
-                  fullWidth={false}
-                >
-                  CUINet
-                </Button>
               </Box>
               <LineQROpenModal open={lineModalOpen} onClose={() => setLineModalOpen(false)} />
-              <CUINetQROpenModal open={cuinetModalOpen} onClose={() => setCuinetModalOpen(false)} />
               <DemoVideoModal open={demoVideoOpen} onClose={() => setDemoVideoOpen(false)} />
             </Box>
           </DialogContent>
         </>
       ) : step === 1 ? (
         <>
-          <DialogTitle sx={{ color: "#f0fdf4", fontWeight: 600 }}>{isRegister ? "ลงทะเบียน" : "เข้าสู่ระบบ"}</DialogTitle>
+          <DialogTitle sx={{ color: "#f0fdf4", fontWeight: 600, display: "flex", alignItems: "center" }}>
+            <Box 
+              sx={{ 
+                display: "flex", 
+                alignItems: "center", 
+                justifyContent: "center",
+                mr: 2,
+                width: 40,
+                height: 40,
+                borderRadius: "50%",
+                border: "2px solid rgba(34, 197, 94, 0.3)",
+                background: "rgba(255, 255, 255, 0.9)",
+                padding: "4px",
+                boxShadow: "0 4px 15px 0 rgba(34, 197, 94, 0.2)",
+                overflow: "hidden",
+                flexShrink: 0,
+              }}
+            >
+              <img
+                src="/chulalongkorn-logo.png"
+                alt="Chulalongkorn University"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "contain",
+                }}
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  target.parentElement!.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: rgba(34, 197, 94, 0.2); color: #22c55e; font-weight: bold; font-size: 10px; text-align: center;">CU</div>';
+                }}
+              />
+            </Box>
+            <InclusiveLearningLogo 
+              sx={{ 
+                fontSize: 35, 
+                color: "#22c55e", 
+                mr: 2,
+                filter: "drop-shadow(0 2px 8px rgba(21, 128, 61, 0.3))"
+              }} 
+            />
+            {isRegister ? "ลงทะเบียน" : "เข้าสู่ระบบ"}
+          </DialogTitle>
           <DialogContent>
             <Box
               sx={{
@@ -593,7 +671,49 @@ export default function LoginModal({ open, onLoginSuccess, forceSessionStep, for
         </>
       ) : (
         <>
-          <DialogTitle sx={{ color: "#f0fdf4", fontWeight: 600 }}>โปรดเลือกแผนการสอน</DialogTitle>
+          <DialogTitle sx={{ color: "#f0fdf4", fontWeight: 600, display: "flex", alignItems: "center" }}>
+            <Box 
+              sx={{ 
+                display: "flex", 
+                alignItems: "center", 
+                justifyContent: "center",
+                mr: 2,
+                width: 40,
+                height: 40,
+                borderRadius: "50%",
+                border: "2px solid rgba(34, 197, 94, 0.3)",
+                background: "rgba(255, 255, 255, 0.9)",
+                padding: "4px",
+                boxShadow: "0 4px 15px 0 rgba(34, 197, 94, 0.2)",
+                overflow: "hidden",
+                flexShrink: 0,
+              }}
+            >
+              <img
+                src="/chulalongkorn-logo.png"
+                alt="Chulalongkorn University"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "contain",
+                }}
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  target.parentElement!.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: rgba(34, 197, 94, 0.2); color: #22c55e; font-weight: bold; font-size: 10px; text-align: center;">CU</div>';
+                }}
+              />
+            </Box>
+            <InclusiveLearningLogo 
+              sx={{ 
+                fontSize: 35, 
+                color: "#22c55e", 
+                mr: 2,
+                filter: "drop-shadow(0 2px 8px rgba(21, 128, 61, 0.3))"
+              }} 
+            />
+            โปรดเลือกแผนการสอน
+          </DialogTitle>
           <DialogContent>
             <List>
               {sessions.map((session) => (
@@ -697,7 +817,7 @@ export default function LoginModal({ open, onLoginSuccess, forceSessionStep, for
               </Button>
             </Box>
             {/* Replace the Line OA button with both buttons side by side */}
-            <Box sx={{ mt: 3, display: "flex", gap: 2 }}>
+            <Box sx={{ mt: 3, display: "flex", gap: 2, justifyContent: "center" }}>
               <Button
                 variant="contained"
                 startIcon={<LineIcon />}
@@ -706,29 +826,12 @@ export default function LoginModal({ open, onLoginSuccess, forceSessionStep, for
                   bgcolor: "#06C755",
                   color: "#fff",
                   "&:hover": { bgcolor: "#05b94a" },
-                  flex: 1,
                 }}
-                fullWidth={false}
               >
                 ติดต่อสอบถาม Line OA
               </Button>
-              <Button
-                variant="contained"
-                startIcon={<LineIcon />}
-                onClick={() => setCuinetModalOpen(true)}
-                sx={{
-                  bgcolor: "#06C755",
-                  color: "#fff",
-                  "&:hover": { bgcolor: "#05b94a" },
-                  flex: 1,
-                }}
-                fullWidth={false}
-              >
-                CUINet
-              </Button>
             </Box>
             <LineQROpenModal open={lineModalOpen} onClose={() => setLineModalOpen(false)} />
-            <CUINetQROpenModal open={cuinetModalOpen} onClose={() => setCuinetModalOpen(false)} />
           </DialogContent>
         </>
       )}

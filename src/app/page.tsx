@@ -130,6 +130,39 @@ export default function LandingPage() {
           }}
         >
           <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", mb: 3 }}>
+            <Box 
+              sx={{ 
+                display: "flex", 
+                alignItems: "center", 
+                justifyContent: "center",
+                mr: 3,
+                width: 100,
+                height: 100,
+                borderRadius: "50%",
+                border: "2px solid rgba(34, 197, 94, 0.3)",
+                background: "rgba(255, 255, 255, 0.9)",
+                padding: "8px",
+                boxShadow: "0 4px 15px 0 rgba(34, 197, 94, 0.2)",
+                overflow: "hidden",
+                flexShrink: 0,
+              }}
+            >
+              <img
+                src="/chulalongkorn-logo.png"
+                alt="Chulalongkorn University"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "contain",
+                }}
+                onError={(e) => {
+                  // Fallback to a placeholder if image fails to load
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  target.parentElement!.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: rgba(34, 197, 94, 0.2); color: #22c55e; font-weight: bold; font-size: 12px; text-align: center;">CU<br/>LOGO</div>';
+                }}
+              />
+            </Box>
             <Avatar
               sx={{
                 width: 100,
@@ -172,6 +205,17 @@ export default function LandingPage() {
                 }}
               >
                 แพลตฟอร์มการศึกษาที่เท่าเทียมสำหรับทุกคน
+              </Typography>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "rgba(240, 253, 244, 0.7)",
+                  fontWeight: 400,
+                  fontStyle: "italic",
+                  mt: 1,
+                }}
+              >
+                by Prof.Dr.Jaitip Na Songkhla and Thitanat Na Songkhla
               </Typography>
             </Box>
           </Box>
@@ -402,6 +446,16 @@ export default function LandingPage() {
             borderTop: "1px solid rgba(34, 197, 94, 0.2)",
           }}
         >
+          <Typography
+            variant="body2"
+            sx={{
+              color: "rgba(240, 253, 244, 0.8)",
+              fontSize: "0.95rem",
+              mb: 1,
+            }}
+          >
+            Created by Jaitip Na Songkhla and Thitanat Na Songkhla
+          </Typography>
           <Typography
             variant="body2"
             sx={{

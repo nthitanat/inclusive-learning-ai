@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { getSessionById } from "@/models/session";
+import { ObjectId } from "mongodb";
 import jwt from "jsonwebtoken";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret";
@@ -143,12 +144,34 @@ export async function GET(req: NextRequest) {
       .limit(limit)
       .toArray();
 
+    // Enrich with user data
+    const enrichedData = await Promise.all(
+      finetuneData.map(async (data: any) => {
+        let userInfo = null;
+        try {
+          if (data.userId) {
+            const user = await db.collection("users").findOne({ _id: new ObjectId(data.userId) });
+            if (user) {
+              userInfo = {
+                email: user.email,
+                firstName: user.firstName,
+                lastName: user.lastName
+              };
+            }
+          }
+        } catch (error) {
+          console.warn("Failed to fetch user info for finetune data:", data._id);
+        }
+        return { ...data, userInfo };
+      })
+    );
+
     const total = await db.collection("finetune_data").countDocuments(filter);
     
-    console.log("Found", finetuneData.length, "records out of", total, "total");
+    console.log("Found", enrichedData.length, "records out of", total, "total");
     
     return NextResponse.json({
-      data: finetuneData,
+      data: enrichedData,
       pagination: {
         page,
         limit,
@@ -161,6 +184,39 @@ export async function GET(req: NextRequest) {
     console.error("Error in GET /api/feedback/finetune:", error);
     return NextResponse.json(
       { error: "Failed to fetch fine-tune data", details: error.message },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const db = await connectDB();
+    
+    const token = req.headers.get("Authorization")?.split(" ")[1];
+    if (!token) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    
+    try {
+      jwt.verify(token, JWT_SECRET);
+    } catch {
+      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    }
+
+    const { id } = await req.json();
+    if (!id) {
+      return NextResponse.json({ error: "Missing id" }, { status: 400 });
+    }
+
+    const result = await db.collection("finetune_data").deleteOne({ _id: new ObjectId(id) });
+    
+    return NextResponse.json({ deletedCount: result.deletedCount });
+
+  } catch (error: any) {
+    console.error("Error deleting fine-tune data:", error);
+    return NextResponse.json(
+      { error: "Failed to delete fine-tune data", details: error.message },
       { status: 500 }
     );
   }
